@@ -284,14 +284,14 @@ func (s *RaftServer) startWatchCluster(checkInterval time.Duration) {
 			var numLsmGets map[string]interface{}
 			if err := json.Unmarshal([]byte(kvsStats["num_lsm_gets"]), &numLsmGets); err == nil {
 				for key, value := range numLsmGets {
-					s.logger.Info("", zap.String("key", key), zap.Any("value", value))
+					metric.KvsNumLSMGetsMetric.WithLabelValues(s.id, key).Set(value.(float64))
 				}
 			}
 
 			var numLsmBloomHits map[string]interface{}
 			if err := json.Unmarshal([]byte(kvsStats["num_lsm_bloom_Hits"]), &numLsmBloomHits); err == nil {
 				for key, value := range numLsmBloomHits {
-					s.logger.Info("", zap.String("key", key), zap.Any("value", value))
+					metric.KvsNumLSMBloomHitsMetric.WithLabelValues(s.id, key).Set(value.(float64))
 				}
 			}
 

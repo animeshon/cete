@@ -141,14 +141,14 @@ var (
 		Subsystem: "kvs",
 		Name:      "num_lsm_gets",
 		Help:      "Number of LSM gets.",
-	}, []string{"id"})
+	}, []string{"id", "key"})
 
 	KvsNumLSMBloomHitsMetric = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: "cete",
 		Subsystem: "kvs",
 		Name:      "num_lsm_bloom_Hits",
 		Help:      "Number of LSM bloom hits.",
-	}, []string{"id"})
+	}, []string{"id", "key"})
 
 	KvsNumGetsMetric = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: "cete",
