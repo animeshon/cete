@@ -94,6 +94,10 @@ func (k *KVS) Get(key string) ([]byte, error) {
 	if err := k.db.View(func(txn *badger.Txn) error {
 		item, err := txn.Get([]byte(key))
 		if err != nil {
+			if err == badger.ErrKeyNotFound {
+				return err
+			}
+
 			k.logger.Error("failed to get item", zap.String("key", key), zap.Error(err))
 			return err
 		}

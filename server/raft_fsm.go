@@ -11,6 +11,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/hashicorp/raft"
+	ceteErrors "github.com/mosuka/cete/errors"
 	"github.com/mosuka/cete/marshaler"
 	"github.com/mosuka/cete/protobuf"
 	"github.com/mosuka/cete/storage"
@@ -72,6 +73,10 @@ func (f *RaftFSM) Close() error {
 func (f *RaftFSM) Get(key string) ([]byte, error) {
 	value, err := f.kvs.Get(key)
 	if err != nil {
+		if err == ceteErrors.ErrNotFound {
+			return nil, err
+		}
+
 		f.logger.Error("failed to get value", zap.String("key", key), zap.Error(err))
 		return nil, err
 	}

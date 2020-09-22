@@ -596,6 +596,10 @@ func (s *RaftServer) Snapshot() error {
 func (s *RaftServer) Get(req *protobuf.GetRequest) (*protobuf.GetResponse, error) {
 	value, err := s.fsm.Get(req.Key)
 	if err != nil {
+		if err == errors.ErrNotFound {
+			return nil, err
+		}
+
 		s.logger.Error("failed to get", zap.Any("key", req.Key), zap.Error(err))
 		return nil, err
 	}
