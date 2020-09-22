@@ -38,13 +38,13 @@ func NewGRPCServer(grpcAddress string, raftServer *RaftServer, certificateFile s
 		grpc.StreamInterceptor(
 			grpcmiddleware.ChainStreamServer(
 				metric.GrpcMetrics.StreamServerInterceptor(),
-				grpczap.StreamServerInterceptor(grpcLogger),
+				grpczap.StreamServerInterceptor(grpcLogger, grpczap.WithLevels(CustomCodeToLevel)),
 			),
 		),
 		grpc.UnaryInterceptor(
 			grpcmiddleware.ChainUnaryServer(
 				metric.GrpcMetrics.UnaryServerInterceptor(),
-				grpczap.UnaryServerInterceptor(grpcLogger),
+				grpczap.UnaryServerInterceptor(grpcLogger, grpczap.WithLevels(CustomCodeToLevel)),
 			),
 		),
 		grpc.KeepaliveParams(
