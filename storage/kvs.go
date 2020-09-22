@@ -21,8 +21,8 @@ type KVS struct {
 func NewKVS(dir string, valueDir string, logger *zap.Logger) (*KVS, error) {
 	opts := badger.DefaultOptions(dir)
 	opts.ValueDir = valueDir
-	opts.SyncWrites = false
-	opts.Logger = nil
+	opts.SyncWrites = true
+	opts.Logger = NewBadgerLogger(logger)
 
 	db, err := badger.Open(opts)
 	if err != nil {
@@ -47,7 +47,31 @@ func (k *KVS) Close() error {
 	return nil
 }
 
-func (k *KVS) RunGC(ctx context.Context, interval time.Duration, discardRatio float64) {
+func (k *KVS) RunGC(ctx context.Context, discardRatio float64) {
+	start := time.Now()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			err := k.db.RunValueLogGC(discardRatio)
+			if err != nil {
+				if err == badger.ErrNoRewrite {
+					goto finished
+				}
+
+				k.logger.Error("garbage collection failed", zap.Error(err))
+				goto finished
+			}
+		}
+	}
+
+finished:
+	k.logger.Info("garbage collection finished", zap.Float64("time", float64(time.Since(start))/float64(time.Second)))
+}
+
+func (k *KVS) ScheduleGC(ctx context.Context, interval time.Duration, discardRatio float64) {
 	go func() {
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
@@ -55,21 +79,7 @@ func (k *KVS) RunGC(ctx context.Context, interval time.Duration, discardRatio fl
 		for {
 			select {
 			case <-ticker.C:
-				start := time.Now()
-
-				for {
-					err := k.db.RunValueLogGC(discardRatio)
-					if err != nil {
-						if err == badger.ErrNoRewrite {
-							break
-						}
-
-						k.logger.Error("garbage collection failed", zap.Error(err))
-						break
-					}
-				}
-
-				k.logger.Info("garbage collection finished", zap.Float64("time", float64(time.Since(start))/float64(time.Second)))
+				k.RunGC(ctx, discardRatio)
 			case <-ctx.Done():
 				return
 			}

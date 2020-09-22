@@ -67,6 +67,7 @@ func (s *RaftServer) Start() error {
 	config.LocalID = raft.ServerID(s.id)
 	config.SnapshotThreshold = 1024
 	config.LogOutput = ioutil.Discard
+	config.NoSnapshotRestoreOnStart = true
 
 	addr, err := net.ResolveTCPAddr("tcp", s.raftAddress)
 	if err != nil {

@@ -40,9 +40,12 @@ func NewRaftFSM(path string, logger *zap.Logger) (*RaftFSM, error) {
 		return nil, err
 	}
 
+	// Make sure to garbage collect everything before running the raft (enable with --force-gc-on-startup).
+	kvs.RunGC(context.Background(), 0.001)
+
 	// TODO: Context should be passed down to allow for cascade cancellation.
 	// TODO: GC should have its own flags for both the interval (--gc-interval=5m) and ratio (--gc-discard-ratio=0.5).
-	kvs.RunGC(context.Background(), 5*time.Minute, 0.5)
+	kvs.ScheduleGC(context.Background(), 5*time.Minute, 0.5)
 
 	return &RaftFSM{
 		logger:   logger,
