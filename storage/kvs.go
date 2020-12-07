@@ -2,6 +2,8 @@ package storage
 
 import (
 	"context"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/dgraph-io/badger/v2"
@@ -21,8 +23,9 @@ type KVS struct {
 func NewKVS(dir string, valueDir string, logger *zap.Logger) (*KVS, error) {
 	opts := badger.DefaultOptions(dir)
 	opts.ValueDir = valueDir
-	opts.SyncWrites = true
+	opts.SyncWrites = !strings.Contains(os.Getenv("FLAGS"), "--disable-sync-writes")
 	opts.Logger = NewBadgerLogger(logger)
+	opts.Truncate = strings.Contains(os.Getenv("FLAGS"), "--truncate=true")
 
 	db, err := badger.Open(opts)
 	if err != nil {

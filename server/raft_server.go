@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	raftbadgerdb "github.com/bbva/raft-badger"
@@ -96,8 +97,9 @@ func (s *RaftServer) Start() error {
 	}
 	logStoreBadgerOpts := badger.DefaultOptions(logStorePath)
 	logStoreBadgerOpts.ValueDir = logStorePath
-	logStoreBadgerOpts.SyncWrites = false
+	logStoreBadgerOpts.SyncWrites = !strings.Contains(os.Getenv("FLAGS"), "--disable-sync-writes")
 	logStoreBadgerOpts.Logger = nil
+	logStoreBadgerOpts.Truncate = strings.Contains(os.Getenv("FLAGS"), "--truncate")
 	logStoreOpts := raftbadgerdb.Options{
 		Path:          logStorePath,
 		BadgerOptions: &logStoreBadgerOpts,
@@ -116,8 +118,9 @@ func (s *RaftServer) Start() error {
 	}
 	stableStoreBadgerOpts := badger.DefaultOptions(stableStorePath)
 	stableStoreBadgerOpts.ValueDir = stableStorePath
-	stableStoreBadgerOpts.SyncWrites = false
+	stableStoreBadgerOpts.SyncWrites = !strings.Contains(os.Getenv("FLAGS"), "--disable-sync-writes")
 	stableStoreBadgerOpts.Logger = nil
+	stableStoreBadgerOpts.Truncate = strings.Contains(os.Getenv("FLAGS"), "--truncate")
 	stableStoreOpts := raftbadgerdb.Options{
 		Path:          stableStorePath,
 		BadgerOptions: &stableStoreBadgerOpts,
@@ -456,7 +459,7 @@ func (s *RaftServer) join(id string, metadata *protobuf.Metadata) error {
 		return err
 	}
 
-	f := s.raft.Apply(msg, 10*time.Second)
+	f := s.raft.Apply(msg, 5*time.Minute)
 	if err = f.Error(); err != nil {
 		s.logger.Error("failed to apply message", zap.String("id", id), zap.Any("metadata", metadata), zap.Error(err))
 		return err
