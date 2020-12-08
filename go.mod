@@ -13,7 +13,7 @@ require (
 	github.com/hashicorp/raft v1.1.2
 	github.com/mash/go-accesslog v1.1.0
 	github.com/mitchellh/go-homedir v1.1.0
-	github.com/mosuka/cete v0.3.1
+	github.com/mosuka/cete v0.3.1 // indirect
 	github.com/natefinch/lumberjack v2.0.0+incompatible
 	github.com/prometheus/client_golang v1.5.1
 	github.com/prometheus/common v0.9.1

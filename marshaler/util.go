@@ -22,6 +22,7 @@ func init() {
 	registry.RegisterType("protobuf.GetRequest", reflect.TypeOf(protobuf.GetRequest{}))
 	registry.RegisterType("protobuf.GetResponse", reflect.TypeOf(protobuf.GetResponse{}))
 	registry.RegisterType("protobuf.SetRequest", reflect.TypeOf(protobuf.SetRequest{}))
+	registry.RegisterType("protobuf.SetConditionalRequest", reflect.TypeOf(protobuf.SetConditionalRequest{}))
 	registry.RegisterType("protobuf.DeleteRequest", reflect.TypeOf(protobuf.DeleteRequest{}))
 	registry.RegisterType("protobuf.SetMetadataRequest", reflect.TypeOf(protobuf.SetMetadataRequest{}))
 	registry.RegisterType("protobuf.DeleteMetadataRequest", reflect.TypeOf(protobuf.DeleteMetadataRequest{}))
