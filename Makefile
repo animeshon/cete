@@ -28,7 +28,7 @@ endif
 ifeq ($(VERSION),)
   VERSION = latest
 endif
-LDFLAGS = -ldflags "-X \"github.com/mosuka/cete/version.Version=$(VERSION)\""
+LDFLAGS = -ldflags "-X \"github.com/animeshon/cete/version.Version=$(VERSION)\""
 
 ifeq ($(GOOS),windows)
   BIN_EXT = .exe
@@ -63,8 +63,8 @@ show-env:
 .PHONY: protoc
 protoc: show-env
 	@echo ">> generating proto3 code"
-	for proto_dir in $(PROTOBUFS); do echo $$proto_dir; protoc --proto_path=. --proto_path=$$proto_dir --proto_path=${GRPC_GATEWAY_PATH} --proto_path=${GRPC_GATEWAY_PATH}/third_party/googleapis --go_out=plugins=grpc:$(GOPATH)/src $$proto_dir/*.proto || exit 1; done
-	for proto_dir in $(PROTOBUFS); do echo $$proto_dir; protoc --proto_path=. --proto_path=$$proto_dir --proto_path=${GRPC_GATEWAY_PATH} --proto_path=${GRPC_GATEWAY_PATH}/third_party/googleapis --grpc-gateway_out=logtostderr=true,allow_delete_body=true:$(GOPATH)/src $$proto_dir/*.proto || exit 1; done
+	for proto_dir in $(PROTOBUFS); do echo $$proto_dir; protoc --proto_path=. --proto_path=$$proto_dir --proto_path=${GRPC_GATEWAY_PATH} --proto_path=${GRPC_GATEWAY_PATH}/third_party/googleapis --go_out=$(GOPATH)/bin --go_opt=paths=source_relative $$proto_dir/*.proto || exit 1; done
+	for proto_dir in $(PROTOBUFS); do echo $$proto_dir; protoc --proto_path=. --proto_path=$$proto_dir --proto_path=${GRPC_GATEWAY_PATH} --proto_path=${GRPC_GATEWAY_PATH}/third_party/googleapis --grpc-gateway_out=logtostderr=true,allow_delete_body=true:$(GOPATH)/bin $$proto_dir/*.proto || exit 1; done
 
 .PHONY: format
 format: show-env

@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"reflect"
 
+	"github.com/animeshon/cete/protobuf"
+	"github.com/animeshon/cete/registry"
 	"github.com/golang/protobuf/ptypes/any"
-	"github.com/mosuka/cete/protobuf"
-	"github.com/mosuka/cete/registry"
 )
 
 func init() {

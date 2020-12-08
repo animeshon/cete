@@ -6,9 +6,9 @@ import (
 	"math"
 	"time"
 
+	"github.com/animeshon/cete/errors"
+	"github.com/animeshon/cete/protobuf"
 	"github.com/golang/protobuf/ptypes/empty"
-	"github.com/mosuka/cete/errors"
-	"github.com/mosuka/cete/protobuf"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
@@ -159,6 +159,14 @@ func (c *GRPCClient) Get(req *protobuf.GetRequest, opts ...grpc.CallOption) (*pr
 
 func (c *GRPCClient) Set(req *protobuf.SetRequest, opts ...grpc.CallOption) error {
 	if _, err := c.client.Set(c.ctx, req, opts...); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *GRPCClient) SetConditional(req *protobuf.SetConditionalRequest, opts ...grpc.CallOption) error {
+	if _, err := c.client.SetConditional(c.ctx, req, opts...); err != nil {
 		return err
 	}
 

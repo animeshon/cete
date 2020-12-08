@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"errors"
 	"io"
 	"io/ioutil"
@@ -8,11 +9,12 @@ import (
 	"sync"
 	"time"
 
+	ceteErrors "github.com/animeshon/cete/errors"
+	"github.com/animeshon/cete/marshaler"
+	"github.com/animeshon/cete/protobuf"
+	"github.com/animeshon/cete/storage"
 	"github.com/golang/protobuf/proto"
 	"github.com/hashicorp/raft"
-	"github.com/mosuka/cete/marshaler"
-	"github.com/mosuka/cete/protobuf"
-	"github.com/mosuka/cete/storage"
 	"go.uber.org/zap"
 )
 
@@ -39,6 +41,13 @@ func NewRaftFSM(path string, logger *zap.Logger) (*RaftFSM, error) {
 		return nil, err
 	}
 
+	// Make sure to garbage collect everything before running the raft (enable with --force-gc-on-startup).
+	kvs.RunGC(context.Background(), 0.001)
+
+	// TODO: Context should be passed down to allow for cascade cancellation.
+	// TODO: GC should have its own flags for both the interval (--gc-interval=5m) and ratio (--gc-discard-ratio=0.5).
+	kvs.ScheduleGC(context.Background(), 5*time.Minute, 0.5)
+
 	return &RaftFSM{
 		logger:   logger,
 		kvs:      kvs,
@@ -64,6 +73,10 @@ func (f *RaftFSM) Close() error {
 func (f *RaftFSM) Get(key string) ([]byte, error) {
 	value, err := f.kvs.Get(key)
 	if err != nil {
+		if err == ceteErrors.ErrNotFound {
+			return nil, err
+		}
+
 		f.logger.Error("failed to get value", zap.String("key", key), zap.Error(err))
 		return nil, err
 	}
@@ -85,6 +98,16 @@ func (f *RaftFSM) applySet(key string, value []byte) interface{} {
 	err := f.kvs.Set(key, value)
 	if err != nil {
 		f.logger.Error("failed to set value", zap.String("key", key), zap.Error(err))
+		return err
+	}
+
+	return nil
+}
+
+func (f *RaftFSM) applySetConditional(object *protobuf.KeyValuePair, meta *protobuf.KeyValuePair, version string) interface{} {
+	err := f.kvs.SetConditional(object, meta, version)
+	if err != nil {
+		f.logger.Error("failed to set value", zap.String("object_key", object.Key), zap.String("meta_key", meta.Key), zap.Error(err))
 		return err
 	}
 
@@ -200,6 +223,25 @@ func (f *RaftFSM) Apply(l *raft.Log) interface{} {
 		req := *data.(*protobuf.SetRequest)
 
 		ret := f.applySet(req.Key, req.Value)
+		if ret == nil {
+			f.applyCh <- &event
+		}
+
+		return ret
+	case protobuf.Event_SetConditional:
+		data, err := marshaler.MarshalAny(event.Data)
+		if err != nil {
+			f.logger.Error("failed to marshal to request from KVS command request", zap.String("type", event.Type.String()), zap.Error(err))
+			return err
+		}
+		if data == nil {
+			err = errors.New("nil")
+			f.logger.Error("request is nil", zap.String("type", event.Type.String()), zap.Error(err))
+			return err
+		}
+		req := *data.(*protobuf.SetConditionalRequest)
+
+		ret := f.applySetConditional(req.Object, req.Metadata, req.Version)
 		if ret == nil {
 			f.applyCh <- &event
 		}

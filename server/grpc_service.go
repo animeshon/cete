@@ -6,12 +6,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/animeshon/cete/client"
+	"github.com/animeshon/cete/errors"
+	"github.com/animeshon/cete/metric"
+	"github.com/animeshon/cete/protobuf"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/hashicorp/raft"
-	"github.com/mosuka/cete/client"
-	"github.com/mosuka/cete/errors"
-	"github.com/mosuka/cete/metric"
-	"github.com/mosuka/cete/protobuf"
 	"github.com/prometheus/common/expfmt"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -19,6 +19,8 @@ import (
 )
 
 type GRPCService struct {
+	protobuf.UnimplementedKVSServer
+
 	raftServer      *RaftServer
 	certificateFile string
 	commonName      string
@@ -387,6 +389,35 @@ func (s *GRPCService) Set(ctx context.Context, req *protobuf.SetRequest) (*empty
 	}
 
 	err := s.raftServer.Set(req)
+	if err != nil {
+		s.logger.Error("failed to put data", zap.Any("req", req), zap.Error(err))
+		return resp, status.Error(codes.Internal, err.Error())
+	}
+
+	return resp, nil
+}
+
+func (s *GRPCService) SetConditional(ctx context.Context, req *protobuf.SetConditionalRequest) (*empty.Empty, error) {
+	resp := &empty.Empty{}
+
+	if s.raftServer.raft.State() != raft.Leader {
+		clusterResp, err := s.Cluster(ctx, &empty.Empty{})
+		if err != nil {
+			s.logger.Error("failed to get cluster info", zap.Error(err))
+			return resp, status.Error(codes.Internal, err.Error())
+		}
+
+		c := s.peerClients[clusterResp.Cluster.Leader]
+		err = c.SetConditional(req)
+		if err != nil {
+			s.logger.Error("failed to forward request", zap.String("grpc_address", c.Target()), zap.Error(err))
+			return resp, status.Error(codes.Internal, err.Error())
+		}
+
+		return resp, nil
+	}
+
+	err := s.raftServer.SetConditional(req)
 	if err != nil {
 		s.logger.Error("failed to put data", zap.Any("req", req), zap.Error(err))
 		return resp, status.Error(codes.Internal, err.Error())

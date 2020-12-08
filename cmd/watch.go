@@ -8,11 +8,11 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/animeshon/cete/client"
+	"github.com/animeshon/cete/marshaler"
+	"github.com/animeshon/cete/protobuf"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/mitchellh/go-homedir"
-	"github.com/mosuka/cete/client"
-	"github.com/mosuka/cete/marshaler"
-	"github.com/mosuka/cete/protobuf"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -86,6 +86,18 @@ var (
 								_, _ = fmt.Fprintln(os.Stderr, fmt.Sprintf("%s, nil", resp.Event.Type.String()))
 							} else {
 								putRequest = putRequestInstance.(*protobuf.SetRequest)
+							}
+						}
+						fmt.Printf("%s, %v\n", resp.Event.Type.String(), putRequest)
+					case protobuf.Event_SetConditional:
+						putRequest := &protobuf.SetConditionalRequest{}
+						if putRequestInstance, err := marshaler.MarshalAny(resp.Event.Data); err != nil {
+							_, _ = fmt.Fprintln(os.Stderr, fmt.Sprintf("%s, %v", resp.Event.Type.String(), err))
+						} else {
+							if putRequestInstance == nil {
+								_, _ = fmt.Fprintln(os.Stderr, fmt.Sprintf("%s, nil", resp.Event.Type.String()))
+							} else {
+								putRequest = putRequestInstance.(*protobuf.SetConditionalRequest)
 							}
 						}
 						fmt.Printf("%s, %v\n", resp.Event.Type.String(), putRequest)

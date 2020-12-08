@@ -23,7 +23,7 @@ When you satisfied dependencies, let's build Cete for Linux as following:
 ```bash
 $ mkdir -p ${GOPATH}/src/github.com/mosuka
 $ cd ${GOPATH}/src/github.com/mosuka
-$ git clone https://github.com/mosuka/cete.git
+$ git clone https://github.com/animeshon/cete.git
 $ cd cete
 $ make build
 ```

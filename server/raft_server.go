@@ -7,17 +7,18 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
+	"github.com/animeshon/cete/errors"
+	"github.com/animeshon/cete/marshaler"
+	"github.com/animeshon/cete/metric"
+	"github.com/animeshon/cete/protobuf"
 	raftbadgerdb "github.com/bbva/raft-badger"
 	"github.com/dgraph-io/badger/v2"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/hashicorp/raft"
-	"github.com/mosuka/cete/errors"
-	"github.com/mosuka/cete/marshaler"
-	"github.com/mosuka/cete/metric"
-	"github.com/mosuka/cete/protobuf"
 	"go.uber.org/zap"
 )
 
@@ -67,6 +68,7 @@ func (s *RaftServer) Start() error {
 	config.LocalID = raft.ServerID(s.id)
 	config.SnapshotThreshold = 1024
 	config.LogOutput = ioutil.Discard
+	config.NoSnapshotRestoreOnStart = true
 
 	addr, err := net.ResolveTCPAddr("tcp", s.raftAddress)
 	if err != nil {
@@ -95,8 +97,9 @@ func (s *RaftServer) Start() error {
 	}
 	logStoreBadgerOpts := badger.DefaultOptions(logStorePath)
 	logStoreBadgerOpts.ValueDir = logStorePath
-	logStoreBadgerOpts.SyncWrites = false
+	logStoreBadgerOpts.SyncWrites = !strings.Contains(os.Getenv("FLAGS"), "--disable-sync-writes")
 	logStoreBadgerOpts.Logger = nil
+	logStoreBadgerOpts.Truncate = strings.Contains(os.Getenv("FLAGS"), "--truncate")
 	logStoreOpts := raftbadgerdb.Options{
 		Path:          logStorePath,
 		BadgerOptions: &logStoreBadgerOpts,
@@ -115,8 +118,9 @@ func (s *RaftServer) Start() error {
 	}
 	stableStoreBadgerOpts := badger.DefaultOptions(stableStorePath)
 	stableStoreBadgerOpts.ValueDir = stableStorePath
-	stableStoreBadgerOpts.SyncWrites = false
+	stableStoreBadgerOpts.SyncWrites = !strings.Contains(os.Getenv("FLAGS"), "--disable-sync-writes")
 	stableStoreBadgerOpts.Logger = nil
+	stableStoreBadgerOpts.Truncate = strings.Contains(os.Getenv("FLAGS"), "--truncate")
 	stableStoreOpts := raftbadgerdb.Options{
 		Path:          stableStorePath,
 		BadgerOptions: &stableStoreBadgerOpts,
@@ -284,14 +288,14 @@ func (s *RaftServer) startWatchCluster(checkInterval time.Duration) {
 			var numLsmGets map[string]interface{}
 			if err := json.Unmarshal([]byte(kvsStats["num_lsm_gets"]), &numLsmGets); err == nil {
 				for key, value := range numLsmGets {
-					s.logger.Info("", zap.String("key", key), zap.Any("value", value))
+					metric.KvsNumLSMGetsMetric.WithLabelValues(s.id, key).Set(value.(float64))
 				}
 			}
 
 			var numLsmBloomHits map[string]interface{}
 			if err := json.Unmarshal([]byte(kvsStats["num_lsm_bloom_Hits"]), &numLsmBloomHits); err == nil {
 				for key, value := range numLsmBloomHits {
-					s.logger.Info("", zap.String("key", key), zap.Any("value", value))
+					metric.KvsNumLSMBloomHitsMetric.WithLabelValues(s.id, key).Set(value.(float64))
 				}
 			}
 
@@ -455,7 +459,7 @@ func (s *RaftServer) join(id string, metadata *protobuf.Metadata) error {
 		return err
 	}
 
-	f := s.raft.Apply(msg, 10*time.Second)
+	f := s.raft.Apply(msg, 5*time.Minute)
 	if err = f.Error(); err != nil {
 		s.logger.Error("failed to apply message", zap.String("id", id), zap.Any("metadata", metadata), zap.Error(err))
 		return err
@@ -595,6 +599,10 @@ func (s *RaftServer) Snapshot() error {
 func (s *RaftServer) Get(req *protobuf.GetRequest) (*protobuf.GetResponse, error) {
 	value, err := s.fsm.Get(req.Key)
 	if err != nil {
+		if err == errors.ErrNotFound {
+			return nil, err
+		}
+
 		s.logger.Error("failed to get", zap.Any("key", req.Key), zap.Error(err))
 		return nil, err
 	}
@@ -635,6 +643,32 @@ func (s *RaftServer) Set(req *protobuf.SetRequest) error {
 	msg, err := proto.Marshal(c)
 	if err != nil {
 		s.logger.Error("failed to marshal the command into the bytes as the message", zap.String("key", req.Key), zap.Error(err))
+		return err
+	}
+
+	if future := s.raft.Apply(msg, 10*time.Second); future.Error() != nil {
+		s.logger.Error("failed to apply the message", zap.Error(future.Error()))
+		return future.Error()
+	}
+
+	return nil
+}
+
+func (s *RaftServer) SetConditional(req *protobuf.SetConditionalRequest) error {
+	kvpAny := &any.Any{}
+	if err := marshaler.UnmarshalAny(req, kvpAny); err != nil {
+		s.logger.Error("failed to unmarshal request to the command data", zap.String("key", req.Object.Key), zap.Error(err))
+		return err
+	}
+
+	c := &protobuf.Event{
+		Type: protobuf.Event_SetConditional,
+		Data: kvpAny,
+	}
+
+	msg, err := proto.Marshal(c)
+	if err != nil {
+		s.logger.Error("failed to marshal the command into the bytes as the message", zap.String("key", req.Object.Key), zap.Error(err))
 		return err
 	}
 

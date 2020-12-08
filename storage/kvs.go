@@ -1,12 +1,17 @@
 package storage
 
 import (
+	"context"
+	"encoding/json"
+	_errors "errors"
+	"os"
+	"strings"
 	"time"
 
+	"github.com/animeshon/cete/errors"
+	"github.com/animeshon/cete/protobuf"
 	"github.com/dgraph-io/badger/v2"
 	"github.com/dgraph-io/badger/v2/y"
-	"github.com/mosuka/cete/errors"
-	"github.com/mosuka/cete/protobuf"
 	"go.uber.org/zap"
 )
 
@@ -20,8 +25,9 @@ type KVS struct {
 func NewKVS(dir string, valueDir string, logger *zap.Logger) (*KVS, error) {
 	opts := badger.DefaultOptions(dir)
 	opts.ValueDir = valueDir
-	opts.SyncWrites = false
-	opts.Logger = nil
+	opts.SyncWrites = !strings.Contains(os.Getenv("FLAGS"), "--disable-sync-writes")
+	opts.Logger = NewBadgerLogger(logger)
+	opts.Truncate = strings.Contains(os.Getenv("FLAGS"), "--truncate")
 
 	db, err := badger.Open(opts)
 	if err != nil {
@@ -46,6 +52,46 @@ func (k *KVS) Close() error {
 	return nil
 }
 
+func (k *KVS) RunGC(ctx context.Context, discardRatio float64) {
+	start := time.Now()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			err := k.db.RunValueLogGC(discardRatio)
+			if err != nil {
+				if err == badger.ErrNoRewrite {
+					goto finished
+				}
+
+				k.logger.Error("garbage collection failed", zap.Error(err))
+				goto finished
+			}
+		}
+	}
+
+finished:
+	k.logger.Info("garbage collection finished", zap.Float64("time", float64(time.Since(start))/float64(time.Second)))
+}
+
+func (k *KVS) ScheduleGC(ctx context.Context, interval time.Duration, discardRatio float64) {
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				k.RunGC(ctx, discardRatio)
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+}
+
 func (k *KVS) Get(key string) ([]byte, error) {
 	start := time.Now()
 
@@ -53,6 +99,10 @@ func (k *KVS) Get(key string) ([]byte, error) {
 	if err := k.db.View(func(txn *badger.Txn) error {
 		item, err := txn.Get([]byte(key))
 		if err != nil {
+			if err == badger.ErrKeyNotFound {
+				return err
+			}
+
 			k.logger.Error("failed to get item", zap.String("key", key), zap.Error(err))
 			return err
 		}
@@ -123,6 +173,69 @@ func (k *KVS) Set(key string, value []byte) error {
 	}
 
 	k.logger.Debug("set", zap.String("key", key), zap.Float64("time", float64(time.Since(start))/float64(time.Second)))
+	return nil
+}
+
+type Pair struct {
+	Key   string
+	Value []byte
+}
+
+func (k *KVS) SetConditional(object *protobuf.KeyValuePair, meta *protobuf.KeyValuePair, version string) error {
+	start := time.Now()
+
+	if err := k.db.Update(func(txn *badger.Txn) error {
+		item, err := txn.Get([]byte(meta.Key))
+		if err != nil {
+			if err == badger.ErrKeyNotFound && version != "" {
+				return err
+			}
+
+			k.logger.Error("failed to get item metadata", zap.String("key", meta.Key), zap.Error(err))
+			return err
+		}
+
+		var _value []byte
+		err = item.Value(func(val []byte) error {
+			_value = val
+			return nil
+		})
+		if err != nil {
+			k.logger.Error("failed to get item metadata value", zap.String("key", meta.Key), zap.Error(err))
+			return err
+		}
+
+		type T struct {
+			Version string `json:"version"`
+		}
+
+		var _old *T
+		if err := json.Unmarshal(_value, &_old); err != nil {
+			return err
+		}
+
+		if _old.Version != version {
+			return _errors.New("failed to set item: precondition failed")
+		}
+
+		err = txn.Set([]byte(object.Key), object.Value)
+		if err != nil {
+			k.logger.Error("failed to set item", zap.String("key", object.Key), zap.Error(err))
+			return err
+		}
+
+		err = txn.Set([]byte(meta.Key), meta.Value)
+		if err != nil {
+			k.logger.Error("failed to set item", zap.String("key", meta.Key), zap.Error(err))
+			return err
+		}
+		return nil
+	}); err != nil {
+		k.logger.Error("failed to set value", zap.String("key", object.Key), zap.Error(err))
+		return err
+	}
+
+	k.logger.Debug("set", zap.String("key", object.Key), zap.Float64("time", float64(time.Since(start))/float64(time.Second)))
 	return nil
 }
 
