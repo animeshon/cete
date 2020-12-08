@@ -104,10 +104,10 @@ func (f *RaftFSM) applySet(key string, value []byte) interface{} {
 	return nil
 }
 
-func (f *RaftFSM) applySetConditional(object *protobuf.KeyValuePair, meta *protobuf.KeyValuePair, version string) interface{} {
-	err := f.kvs.SetConditional(object, meta, version)
+func (f *RaftFSM) applySetObject(item, meta *protobuf.KeyValuePair, ifMatch, ifNoneMatch string, ifModifiedSince, ifUnmodifiedSince int64) interface{} {
+	err := f.kvs.SetObject(item, meta, ifMatch, ifNoneMatch, ifModifiedSince, ifUnmodifiedSince)
 	if err != nil {
-		f.logger.Error("failed to set value", zap.String("object_key", object.Key), zap.String("meta_key", meta.Key), zap.Error(err))
+		f.logger.Error("failed to set value", zap.String("object_key", item.Key), zap.String("meta_key", meta.Key), zap.Error(err))
 		return err
 	}
 
@@ -118,6 +118,16 @@ func (f *RaftFSM) applyDelete(key string) interface{} {
 	err := f.kvs.Delete(key)
 	if err != nil {
 		f.logger.Error("failed to delete value", zap.String("key", key), zap.Error(err))
+		return err
+	}
+
+	return nil
+}
+
+func (f *RaftFSM) applyDeleteObject(itemKey, metaKey, ifMatch, ifNoneMatch string, ifModifiedSince, ifUnmodifiedSince int64) interface{} {
+	err := f.kvs.DeleteObject(itemKey, metaKey, ifMatch, ifNoneMatch, ifModifiedSince, ifUnmodifiedSince)
+	if err != nil {
+		f.logger.Error("failed to delete value", zap.String("key", itemKey), zap.Error(err))
 		return err
 	}
 
@@ -228,7 +238,7 @@ func (f *RaftFSM) Apply(l *raft.Log) interface{} {
 		}
 
 		return ret
-	case protobuf.Event_SetConditional:
+	case protobuf.Event_SetObject:
 		data, err := marshaler.MarshalAny(event.Data)
 		if err != nil {
 			f.logger.Error("failed to marshal to request from KVS command request", zap.String("type", event.Type.String()), zap.Error(err))
@@ -239,9 +249,9 @@ func (f *RaftFSM) Apply(l *raft.Log) interface{} {
 			f.logger.Error("request is nil", zap.String("type", event.Type.String()), zap.Error(err))
 			return err
 		}
-		req := *data.(*protobuf.SetConditionalRequest)
+		req := *data.(*protobuf.SetObjectRequest)
 
-		ret := f.applySetConditional(req.Object, req.Metadata, req.Version)
+		ret := f.applySetObject(req.Item, req.Meta, req.IfMatch, req.IfNoneMatch, req.IfModifiedSince, req.IfUnmodifiedSince)
 		if ret == nil {
 			f.applyCh <- &event
 		}
@@ -261,6 +271,25 @@ func (f *RaftFSM) Apply(l *raft.Log) interface{} {
 		req := *data.(*protobuf.DeleteRequest)
 
 		ret := f.applyDelete(req.Key)
+		if ret == nil {
+			f.applyCh <- &event
+		}
+
+		return ret
+	case protobuf.Event_DeleteObject:
+		data, err := marshaler.MarshalAny(event.Data)
+		if err != nil {
+			f.logger.Error("failed to marshal to request from KVS command request", zap.String("type", event.Type.String()), zap.Error(err))
+			return err
+		}
+		if data == nil {
+			err = errors.New("nil")
+			f.logger.Error("request is nil", zap.String("type", event.Type.String()), zap.Error(err))
+			return err
+		}
+		req := *data.(*protobuf.DeleteObjectRequest)
+
+		ret := f.applyDeleteObject(req.ItemKey, req.MetaKey, req.IfMatch, req.IfNoneMatch, req.IfModifiedSince, req.IfUnmodifiedSince)
 		if ret == nil {
 			f.applyCh <- &event
 		}

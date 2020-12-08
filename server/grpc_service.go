@@ -397,7 +397,7 @@ func (s *GRPCService) Set(ctx context.Context, req *protobuf.SetRequest) (*empty
 	return resp, nil
 }
 
-func (s *GRPCService) SetConditional(ctx context.Context, req *protobuf.SetConditionalRequest) (*empty.Empty, error) {
+func (s *GRPCService) SetObject(ctx context.Context, req *protobuf.SetObjectRequest) (*empty.Empty, error) {
 	resp := &empty.Empty{}
 
 	if s.raftServer.raft.State() != raft.Leader {
@@ -408,7 +408,7 @@ func (s *GRPCService) SetConditional(ctx context.Context, req *protobuf.SetCondi
 		}
 
 		c := s.peerClients[clusterResp.Cluster.Leader]
-		err = c.SetConditional(req)
+		err = c.SetObject(req)
 		if err != nil {
 			s.logger.Error("failed to forward request", zap.String("grpc_address", c.Target()), zap.Error(err))
 			return resp, status.Error(codes.Internal, err.Error())
@@ -417,7 +417,7 @@ func (s *GRPCService) SetConditional(ctx context.Context, req *protobuf.SetCondi
 		return resp, nil
 	}
 
-	err := s.raftServer.SetConditional(req)
+	err := s.raftServer.SetObject(req)
 	if err != nil {
 		s.logger.Error("failed to put data", zap.Any("req", req), zap.Error(err))
 		return resp, status.Error(codes.Internal, err.Error())
@@ -449,6 +449,35 @@ func (s *GRPCService) Delete(ctx context.Context, req *protobuf.DeleteRequest) (
 	err := s.raftServer.Delete(req)
 	if err != nil {
 		s.logger.Error("failed to delete data", zap.String("key", req.Key), zap.Error(err))
+		return resp, status.Error(codes.Internal, err.Error())
+	}
+
+	return resp, nil
+}
+
+func (s *GRPCService) DeleteObject(ctx context.Context, req *protobuf.DeleteObjectRequest) (*empty.Empty, error) {
+	resp := &empty.Empty{}
+
+	if s.raftServer.raft.State() != raft.Leader {
+		clusterResp, err := s.Cluster(ctx, &empty.Empty{})
+		if err != nil {
+			s.logger.Error("failed to get cluster info", zap.Error(err))
+			return resp, status.Error(codes.Internal, err.Error())
+		}
+
+		c := s.peerClients[clusterResp.Cluster.Leader]
+		err = c.DeleteObject(req)
+		if err != nil {
+			s.logger.Error("failed to forward request", zap.String("grpc_address", c.Target()), zap.Error(err))
+			return resp, status.Error(codes.Internal, err.Error())
+		}
+
+		return resp, nil
+	}
+
+	err := s.raftServer.DeleteObject(req)
+	if err != nil {
+		s.logger.Error("failed to delete data", zap.String("key", req.ItemKey), zap.Error(err))
 		return resp, status.Error(codes.Internal, err.Error())
 	}
 

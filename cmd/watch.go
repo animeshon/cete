@@ -89,15 +89,15 @@ var (
 							}
 						}
 						fmt.Printf("%s, %v\n", resp.Event.Type.String(), putRequest)
-					case protobuf.Event_SetConditional:
-						putRequest := &protobuf.SetConditionalRequest{}
+					case protobuf.Event_SetObject:
+						putRequest := &protobuf.SetObjectRequest{}
 						if putRequestInstance, err := marshaler.MarshalAny(resp.Event.Data); err != nil {
 							_, _ = fmt.Fprintln(os.Stderr, fmt.Sprintf("%s, %v", resp.Event.Type.String(), err))
 						} else {
 							if putRequestInstance == nil {
 								_, _ = fmt.Fprintln(os.Stderr, fmt.Sprintf("%s, nil", resp.Event.Type.String()))
 							} else {
-								putRequest = putRequestInstance.(*protobuf.SetConditionalRequest)
+								putRequest = putRequestInstance.(*protobuf.SetObjectRequest)
 							}
 						}
 						fmt.Printf("%s, %v\n", resp.Event.Type.String(), putRequest)
@@ -113,6 +113,18 @@ var (
 							}
 						}
 						fmt.Printf("%s, %v\n", resp.Event.Type.String(), deleteRequest)
+					case protobuf.Event_DeleteObject:
+						putRequest := &protobuf.DeleteObjectRequest{}
+						if putRequestInstance, err := marshaler.MarshalAny(resp.Event.Data); err != nil {
+							_, _ = fmt.Fprintln(os.Stderr, fmt.Sprintf("%s, %v", resp.Event.Type.String(), err))
+						} else {
+							if putRequestInstance == nil {
+								_, _ = fmt.Fprintln(os.Stderr, fmt.Sprintf("%s, nil", resp.Event.Type.String()))
+							} else {
+								putRequest = putRequestInstance.(*protobuf.DeleteObjectRequest)
+							}
+						}
+						fmt.Printf("%s, %v\n", resp.Event.Type.String(), putRequest)
 					}
 				}
 			}()

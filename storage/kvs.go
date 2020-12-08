@@ -181,61 +181,72 @@ type Pair struct {
 	Value []byte
 }
 
-func (k *KVS) SetConditional(object *protobuf.KeyValuePair, meta *protobuf.KeyValuePair, version string) error {
+func (k *KVS) SetObject(item, meta *protobuf.KeyValuePair, ifMatch, ifNoneMatch string, ifModifiedSince, ifUnmodifiedSince int64) error {
 	start := time.Now()
 
+	// TODO: Implement [If-Modified-Since] and [If-Unmodified-Since] logic.
 	if err := k.db.Update(func(txn *badger.Txn) error {
-		item, err := txn.Get([]byte(meta.Key))
-		if err != nil {
-			if err == badger.ErrKeyNotFound && version != "" {
-				return err
-			}
-
+		badgerItem, err := txn.Get([]byte(meta.Key))
+		if err != nil && !_errors.Is(err, badger.ErrKeyNotFound) {
 			k.logger.Error("failed to get item metadata", zap.String("key", meta.Key), zap.Error(err))
 			return err
 		}
 
-		var _value []byte
-		err = item.Value(func(val []byte) error {
-			_value = val
-			return nil
-		})
+		// If-Match fails if the latest metadata version does not match the provided version or if it doesn't exist.
+		if len(ifMatch) != 0 && err == badger.ErrKeyNotFound {
+			return _errors.New("precondition failed [If-Match]: metadata does not exist")
+		}
+
+		// If-None-Match fails if the latest metadata version matches the provided version.
+		// In case If-None-Match is set to '*' it fails if any metadata exists, no matter its version.
+		if ifNoneMatch == "*" && err != badger.ErrKeyNotFound {
+			return _errors.New("precondition failed [If-None-Match]: metadata already exists")
+		}
+
+		// Verify that the metadata version matches the precondition.
+		if len(ifMatch) != 0 {
+			var value []byte
+			err = badgerItem.Value(func(val []byte) error {
+				value = val
+				return nil
+			})
+			if err != nil {
+				k.logger.Error("failed to get metadata value", zap.String("key", meta.Key), zap.Error(err))
+				return err
+			}
+
+			type T struct {
+				Version string `json:"version"`
+			}
+
+			var _meta *T
+			if err := json.Unmarshal(value, &_meta); err != nil {
+				return err
+			}
+
+			if _meta.Version != ifMatch {
+				return _errors.New("precondition failed [If-Match]: value mismatch")
+			}
+		}
+
+		err = txn.Set([]byte(item.Key), item.Value)
 		if err != nil {
-			k.logger.Error("failed to get item metadata value", zap.String("key", meta.Key), zap.Error(err))
-			return err
-		}
-
-		type T struct {
-			Version string `json:"version"`
-		}
-
-		var _old *T
-		if err := json.Unmarshal(_value, &_old); err != nil {
-			return err
-		}
-
-		if _old.Version != version {
-			return _errors.New("failed to set item: precondition failed")
-		}
-
-		err = txn.Set([]byte(object.Key), object.Value)
-		if err != nil {
-			k.logger.Error("failed to set item", zap.String("key", object.Key), zap.Error(err))
+			k.logger.Error("failed to set item", zap.String("key", item.Key), zap.Error(err))
 			return err
 		}
 
 		err = txn.Set([]byte(meta.Key), meta.Value)
 		if err != nil {
-			k.logger.Error("failed to set item", zap.String("key", meta.Key), zap.Error(err))
+			k.logger.Error("failed to set item metadata", zap.String("key", meta.Key), zap.Error(err))
 			return err
 		}
 		return nil
 	}); err != nil {
-		k.logger.Error("failed to set value", zap.String("key", object.Key), zap.Error(err))
+		k.logger.Error("failed to set value", zap.String("key", item.Key), zap.Error(err))
 		return err
 	}
 
-	k.logger.Debug("set", zap.String("key", object.Key), zap.Float64("time", float64(time.Since(start))/float64(time.Second)))
+	k.logger.Debug("set", zap.String("key", item.Key), zap.Float64("time", float64(time.Since(start))/float64(time.Second)))
 	return nil
 }
 
@@ -255,6 +266,31 @@ func (k *KVS) Delete(key string) error {
 	}
 
 	k.logger.Debug("delete", zap.String("key", key), zap.Float64("time", float64(time.Since(start))/float64(time.Second)))
+	return nil
+}
+
+func (k *KVS) DeleteObject(itemKey, metaKey string, ifMatch, ifNoneMatch string, ifModifiedSince, ifUnmodifiedSince int64) error {
+	start := time.Now()
+
+	// TODO: Implement [If-Match], [If-None-Match], [If-Modified-Since] and [If-Unmodified-Since] logic.
+	if err := k.db.Update(func(txn *badger.Txn) error {
+		err := txn.Delete([]byte(itemKey))
+		if err != nil {
+			k.logger.Error("failed to delete item", zap.String("key", itemKey), zap.Error(err))
+			return err
+		}
+		err = txn.Delete([]byte(metaKey))
+		if err != nil {
+			k.logger.Error("failed to delete item", zap.String("key", metaKey), zap.Error(err))
+			return err
+		}
+		return nil
+	}); err != nil {
+		k.logger.Error("failed to delete value", zap.String("key", itemKey), zap.Error(err))
+		return err
+	}
+
+	k.logger.Debug("delete", zap.String("key", itemKey), zap.Float64("time", float64(time.Since(start))/float64(time.Second)))
 	return nil
 }
 

@@ -69,13 +69,15 @@ service KVS {
         };
     }
 
-    rpc SetConditional (SetConditionalRequest) returns (google.protobuf.Empty) {}
+    rpc SetObject (SetObjectRequest) returns (google.protobuf.Empty) {}
 
     rpc Delete (DeleteRequest) returns (google.protobuf.Empty) {
         option (google.api.http) = {
             delete: "/v1/data/{key=**}"
         };
     }
+
+    rpc DeleteObject (DeleteObjectRequest) returns (google.protobuf.Empty) {}
 
     rpc Watch (google.protobuf.Empty) returns (stream WatchResponse) {}
 
@@ -148,14 +150,42 @@ message SetRequest {
     bytes value = 2;
 }
 
-message SetConditionalRequest {
-    KeyValuePair object = 1;
-    KeyValuePair metadata = 2;
-    string version = 3;
+message SetObjectRequest {
+    KeyValuePair item = 1;
+    KeyValuePair meta = 2;
+    
+    // Equivalent to HTTP header If-None-Match.
+    string if_none_match = 3;
+
+    // Equivalent to HTTP header If-Match.
+    string if_match = 4;
+
+    // Equivalent to HTTP header If-Unmodified-Since.
+    int64 if_unmodified_since = 5;
+
+    // Equivalent to HTTP header If-Modified-Since.
+    int64 if_modified_since = 6;
 }
 
 message DeleteRequest {
     string key = 1;
+}
+
+message DeleteObjectRequest {
+    string item_key = 1;
+    string meta_key = 2;
+    
+    // Equivalent to HTTP header If-None-Match.
+    string if_none_match = 3;
+
+    // Equivalent to HTTP header If-Match.
+    string if_match = 4;
+
+    // Equivalent to HTTP header If-Unmodified-Since.
+    int64 if_unmodified_since = 5;
+
+    // Equivalent to HTTP header If-Modified-Since.
+    int64 if_modified_since = 6;
 }
 
 message SetMetadataRequest {
@@ -173,8 +203,9 @@ message Event {
         Join = 1;
         Leave = 2;
         Set = 3;
-        SetConditional = 4;
+        SetObject = 4;
         Delete = 5;
+        DeleteObject = 6;
     }
     Type type = 1;
     google.protobuf.Any data = 2;

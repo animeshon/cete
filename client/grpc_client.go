@@ -165,8 +165,8 @@ func (c *GRPCClient) Set(req *protobuf.SetRequest, opts ...grpc.CallOption) erro
 	return nil
 }
 
-func (c *GRPCClient) SetConditional(req *protobuf.SetConditionalRequest, opts ...grpc.CallOption) error {
-	if _, err := c.client.SetConditional(c.ctx, req, opts...); err != nil {
+func (c *GRPCClient) SetObject(req *protobuf.SetObjectRequest, opts ...grpc.CallOption) error {
+	if _, err := c.client.SetObject(c.ctx, req, opts...); err != nil {
 		return err
 	}
 
@@ -175,6 +175,14 @@ func (c *GRPCClient) SetConditional(req *protobuf.SetConditionalRequest, opts ..
 
 func (c *GRPCClient) Delete(req *protobuf.DeleteRequest, opts ...grpc.CallOption) error {
 	if _, err := c.client.Delete(c.ctx, req, opts...); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *GRPCClient) DeleteObject(req *protobuf.DeleteObjectRequest, opts ...grpc.CallOption) error {
+	if _, err := c.client.DeleteObject(c.ctx, req, opts...); err != nil {
 		return err
 	}
 

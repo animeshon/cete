@@ -28,8 +28,9 @@ type KVSClient interface {
 	Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetResponse, error)
 	Scan(ctx context.Context, in *ScanRequest, opts ...grpc.CallOption) (*ScanResponse, error)
 	Set(ctx context.Context, in *SetRequest, opts ...grpc.CallOption) (*empty.Empty, error)
-	SetConditional(ctx context.Context, in *SetConditionalRequest, opts ...grpc.CallOption) (*empty.Empty, error)
+	SetObject(ctx context.Context, in *SetObjectRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	Delete(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*empty.Empty, error)
+	DeleteObject(ctx context.Context, in *DeleteObjectRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	Watch(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (KVS_WatchClient, error)
 	Metrics(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*MetricsResponse, error)
 }
@@ -132,9 +133,9 @@ func (c *kVSClient) Set(ctx context.Context, in *SetRequest, opts ...grpc.CallOp
 	return out, nil
 }
 
-func (c *kVSClient) SetConditional(ctx context.Context, in *SetConditionalRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+func (c *kVSClient) SetObject(ctx context.Context, in *SetObjectRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
 	out := new(empty.Empty)
-	err := c.cc.Invoke(ctx, "/kvs.KVS/SetConditional", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/kvs.KVS/SetObject", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -144,6 +145,15 @@ func (c *kVSClient) SetConditional(ctx context.Context, in *SetConditionalReques
 func (c *kVSClient) Delete(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
 	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/kvs.KVS/Delete", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *kVSClient) DeleteObject(ctx context.Context, in *DeleteObjectRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
+	err := c.cc.Invoke(ctx, "/kvs.KVS/DeleteObject", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -205,8 +215,9 @@ type KVSServer interface {
 	Get(context.Context, *GetRequest) (*GetResponse, error)
 	Scan(context.Context, *ScanRequest) (*ScanResponse, error)
 	Set(context.Context, *SetRequest) (*empty.Empty, error)
-	SetConditional(context.Context, *SetConditionalRequest) (*empty.Empty, error)
+	SetObject(context.Context, *SetObjectRequest) (*empty.Empty, error)
 	Delete(context.Context, *DeleteRequest) (*empty.Empty, error)
+	DeleteObject(context.Context, *DeleteObjectRequest) (*empty.Empty, error)
 	Watch(*empty.Empty, KVS_WatchServer) error
 	Metrics(context.Context, *empty.Empty) (*MetricsResponse, error)
 	mustEmbedUnimplementedKVSServer()
@@ -246,11 +257,14 @@ func (UnimplementedKVSServer) Scan(context.Context, *ScanRequest) (*ScanResponse
 func (UnimplementedKVSServer) Set(context.Context, *SetRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Set not implemented")
 }
-func (UnimplementedKVSServer) SetConditional(context.Context, *SetConditionalRequest) (*empty.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SetConditional not implemented")
+func (UnimplementedKVSServer) SetObject(context.Context, *SetObjectRequest) (*empty.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetObject not implemented")
 }
 func (UnimplementedKVSServer) Delete(context.Context, *DeleteRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Delete not implemented")
+}
+func (UnimplementedKVSServer) DeleteObject(context.Context, *DeleteObjectRequest) (*empty.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteObject not implemented")
 }
 func (UnimplementedKVSServer) Watch(*empty.Empty, KVS_WatchServer) error {
 	return status.Errorf(codes.Unimplemented, "method Watch not implemented")
@@ -451,20 +465,20 @@ func _KVS_Set_Handler(srv interface{}, ctx context.Context, dec func(interface{}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _KVS_SetConditional_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SetConditionalRequest)
+func _KVS_SetObject_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetObjectRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(KVSServer).SetConditional(ctx, in)
+		return srv.(KVSServer).SetObject(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/kvs.KVS/SetConditional",
+		FullMethod: "/kvs.KVS/SetObject",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(KVSServer).SetConditional(ctx, req.(*SetConditionalRequest))
+		return srv.(KVSServer).SetObject(ctx, req.(*SetObjectRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -483,6 +497,24 @@ func _KVS_Delete_Handler(srv interface{}, ctx context.Context, dec func(interfac
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(KVSServer).Delete(ctx, req.(*DeleteRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KVS_DeleteObject_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteObjectRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KVSServer).DeleteObject(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/kvs.KVS/DeleteObject",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KVSServer).DeleteObject(ctx, req.(*DeleteObjectRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -574,12 +606,16 @@ var KVS_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _KVS_Set_Handler,
 		},
 		{
-			MethodName: "SetConditional",
-			Handler:    _KVS_SetConditional_Handler,
+			MethodName: "SetObject",
+			Handler:    _KVS_SetObject_Handler,
 		},
 		{
 			MethodName: "Delete",
 			Handler:    _KVS_Delete_Handler,
+		},
+		{
+			MethodName: "DeleteObject",
+			Handler:    _KVS_DeleteObject_Handler,
 		},
 		{
 			MethodName: "Metrics",

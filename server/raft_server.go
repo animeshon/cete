@@ -646,35 +646,45 @@ func (s *RaftServer) Set(req *protobuf.SetRequest) error {
 		return err
 	}
 
-	if future := s.raft.Apply(msg, 10*time.Second); future.Error() != nil {
+	future := s.raft.Apply(msg, 10*time.Second)
+	if future.Error() != nil {
 		s.logger.Error("failed to apply the message", zap.Error(future.Error()))
 		return future.Error()
+	}
+
+	if err, ok := (future.Response()).(error); ok {
+		return err
 	}
 
 	return nil
 }
 
-func (s *RaftServer) SetConditional(req *protobuf.SetConditionalRequest) error {
+func (s *RaftServer) SetObject(req *protobuf.SetObjectRequest) error {
 	kvpAny := &any.Any{}
 	if err := marshaler.UnmarshalAny(req, kvpAny); err != nil {
-		s.logger.Error("failed to unmarshal request to the command data", zap.String("key", req.Object.Key), zap.Error(err))
+		s.logger.Error("failed to unmarshal request to the command data", zap.String("key", req.Item.Key), zap.Error(err))
 		return err
 	}
 
 	c := &protobuf.Event{
-		Type: protobuf.Event_SetConditional,
+		Type: protobuf.Event_SetObject,
 		Data: kvpAny,
 	}
 
 	msg, err := proto.Marshal(c)
 	if err != nil {
-		s.logger.Error("failed to marshal the command into the bytes as the message", zap.String("key", req.Object.Key), zap.Error(err))
+		s.logger.Error("failed to marshal the command into the bytes as the message", zap.String("key", req.Item.Key), zap.Error(err))
 		return err
 	}
 
-	if future := s.raft.Apply(msg, 10*time.Second); future.Error() != nil {
+	future := s.raft.Apply(msg, 10*time.Second)
+	if future.Error() != nil {
 		s.logger.Error("failed to apply the message", zap.Error(future.Error()))
 		return future.Error()
+	}
+
+	if err, ok := (future.Response()).(error); ok {
+		return err
 	}
 
 	return nil
@@ -698,9 +708,45 @@ func (s *RaftServer) Delete(req *protobuf.DeleteRequest) error {
 		return err
 	}
 
-	if future := s.raft.Apply(msg, 10*time.Second); future.Error() != nil {
+	future := s.raft.Apply(msg, 10*time.Second)
+	if future.Error() != nil {
 		s.logger.Error("failed to unmarshal request to the command data", zap.String("key", req.Key), zap.Error(future.Error()))
 		return future.Error()
+	}
+
+	if err, ok := (future.Response()).(error); ok {
+		return err
+	}
+
+	return nil
+}
+
+func (s *RaftServer) DeleteObject(req *protobuf.DeleteObjectRequest) error {
+	kvpAny := &any.Any{}
+	if err := marshaler.UnmarshalAny(req, kvpAny); err != nil {
+		s.logger.Error("failed to unmarshal request to the command data", zap.String("key", req.ItemKey), zap.Error(err))
+		return err
+	}
+
+	c := &protobuf.Event{
+		Type: protobuf.Event_Delete,
+		Data: kvpAny,
+	}
+
+	msg, err := proto.Marshal(c)
+	if err != nil {
+		s.logger.Error("failed to marshal the command into the bytes as the message", zap.String("key", req.ItemKey), zap.Error(err))
+		return err
+	}
+
+	future := s.raft.Apply(msg, 10*time.Second)
+	if future.Error() != nil {
+		s.logger.Error("failed to unmarshal request to the command data", zap.String("key", req.ItemKey), zap.Error(future.Error()))
+		return future.Error()
+	}
+
+	if err, ok := (future.Response()).(error); ok {
+		return err
 	}
 
 	return nil
