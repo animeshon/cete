@@ -5,8 +5,8 @@ import (
 	"io"
 	"io/ioutil"
 
-	"github.com/grpc-ecosystem/grpc-gateway/runtime"
-	"github.com/mosuka/cete/protobuf"
+	"github.com/animeshon/cete/protobuf"
+	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 )
 
 var (
@@ -15,7 +15,7 @@ var (
 
 type CeteMarshaler struct{}
 
-func (*CeteMarshaler) ContentType() string {
+func (*CeteMarshaler) ContentType(v interface{}) string {
 	return DefaultContentType
 }
 

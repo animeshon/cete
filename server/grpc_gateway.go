@@ -7,17 +7,17 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/grpc-ecosystem/grpc-gateway/runtime"
-	"github.com/mosuka/cete/marshaler"
-	"github.com/mosuka/cete/protobuf"
+	"github.com/animeshon/cete/marshaler"
+	"github.com/animeshon/cete/protobuf"
+	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
+	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
-func responseFilter(ctx context.Context, w http.ResponseWriter, resp proto.Message) error {
+func responseFilter(ctx context.Context, w http.ResponseWriter, resp protoreflect.ProtoMessage) error {
 	switch resp.(type) {
 	case *protobuf.GetResponse:
 		if r, ok := resp.(*protobuf.GetResponse); ok {

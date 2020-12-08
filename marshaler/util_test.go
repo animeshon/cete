@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"testing"
 
+	"github.com/animeshon/cete/protobuf"
 	"github.com/golang/protobuf/ptypes/any"
-	"github.com/mosuka/cete/protobuf"
 )
 
 func TestMarshalAny(t *testing.T) {

@@ -2,14 +2,16 @@ package storage
 
 import (
 	"context"
+	"encoding/json"
+	_errors "errors"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/animeshon/cete/errors"
+	"github.com/animeshon/cete/protobuf"
 	"github.com/dgraph-io/badger/v2"
 	"github.com/dgraph-io/badger/v2/y"
-	"github.com/mosuka/cete/errors"
-	"github.com/mosuka/cete/protobuf"
 	"go.uber.org/zap"
 )
 
@@ -171,6 +173,69 @@ func (k *KVS) Set(key string, value []byte) error {
 	}
 
 	k.logger.Debug("set", zap.String("key", key), zap.Float64("time", float64(time.Since(start))/float64(time.Second)))
+	return nil
+}
+
+type Pair struct {
+	Key   string
+	Value []byte
+}
+
+func (k *KVS) SetConditional(object *protobuf.KeyValuePair, meta *protobuf.KeyValuePair, version string) error {
+	start := time.Now()
+
+	if err := k.db.Update(func(txn *badger.Txn) error {
+		item, err := txn.Get([]byte(meta.Key))
+		if err != nil {
+			if err == badger.ErrKeyNotFound && version != "" {
+				return err
+			}
+
+			k.logger.Error("failed to get item metadata", zap.String("key", meta.Key), zap.Error(err))
+			return err
+		}
+
+		var _value []byte
+		err = item.Value(func(val []byte) error {
+			_value = val
+			return nil
+		})
+		if err != nil {
+			k.logger.Error("failed to get item metadata value", zap.String("key", meta.Key), zap.Error(err))
+			return err
+		}
+
+		type T struct {
+			Version string `json:"version"`
+		}
+
+		var _old *T
+		if err := json.Unmarshal(_value, &_old); err != nil {
+			return err
+		}
+
+		if _old.Version != version {
+			return _errors.New("failed to set item: precondition failed")
+		}
+
+		err = txn.Set([]byte(object.Key), object.Value)
+		if err != nil {
+			k.logger.Error("failed to set item", zap.String("key", object.Key), zap.Error(err))
+			return err
+		}
+
+		err = txn.Set([]byte(meta.Key), meta.Value)
+		if err != nil {
+			k.logger.Error("failed to set item", zap.String("key", meta.Key), zap.Error(err))
+			return err
+		}
+		return nil
+	}); err != nil {
+		k.logger.Error("failed to set value", zap.String("key", object.Key), zap.Error(err))
+		return err
+	}
+
+	k.logger.Debug("set", zap.String("key", object.Key), zap.Float64("time", float64(time.Since(start))/float64(time.Second)))
 	return nil
 }
 

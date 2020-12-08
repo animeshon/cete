@@ -9,12 +9,12 @@ import (
 	"sync"
 	"time"
 
+	ceteErrors "github.com/animeshon/cete/errors"
+	"github.com/animeshon/cete/marshaler"
+	"github.com/animeshon/cete/protobuf"
+	"github.com/animeshon/cete/storage"
 	"github.com/golang/protobuf/proto"
 	"github.com/hashicorp/raft"
-	ceteErrors "github.com/mosuka/cete/errors"
-	"github.com/mosuka/cete/marshaler"
-	"github.com/mosuka/cete/protobuf"
-	"github.com/mosuka/cete/storage"
 	"go.uber.org/zap"
 )
 
@@ -98,6 +98,16 @@ func (f *RaftFSM) applySet(key string, value []byte) interface{} {
 	err := f.kvs.Set(key, value)
 	if err != nil {
 		f.logger.Error("failed to set value", zap.String("key", key), zap.Error(err))
+		return err
+	}
+
+	return nil
+}
+
+func (f *RaftFSM) applySetConditional(object *protobuf.KeyValuePair, meta *protobuf.KeyValuePair, version string) interface{} {
+	err := f.kvs.SetConditional(object, meta, version)
+	if err != nil {
+		f.logger.Error("failed to set value", zap.String("object_key", object.Key), zap.String("meta_key", meta.Key), zap.Error(err))
 		return err
 	}
 
@@ -213,6 +223,25 @@ func (f *RaftFSM) Apply(l *raft.Log) interface{} {
 		req := *data.(*protobuf.SetRequest)
 
 		ret := f.applySet(req.Key, req.Value)
+		if ret == nil {
+			f.applyCh <- &event
+		}
+
+		return ret
+	case protobuf.Event_SetConditional:
+		data, err := marshaler.MarshalAny(event.Data)
+		if err != nil {
+			f.logger.Error("failed to marshal to request from KVS command request", zap.String("type", event.Type.String()), zap.Error(err))
+			return err
+		}
+		if data == nil {
+			err = errors.New("nil")
+			f.logger.Error("request is nil", zap.String("type", event.Type.String()), zap.Error(err))
+			return err
+		}
+		req := *data.(*protobuf.SetConditionalRequest)
+
+		ret := f.applySetConditional(req.Object, req.Metadata, req.Version)
 		if ret == nil {
 			f.applyCh <- &event
 		}

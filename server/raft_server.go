@@ -10,15 +10,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/animeshon/cete/errors"
+	"github.com/animeshon/cete/marshaler"
+	"github.com/animeshon/cete/metric"
+	"github.com/animeshon/cete/protobuf"
 	raftbadgerdb "github.com/bbva/raft-badger"
 	"github.com/dgraph-io/badger/v2"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/hashicorp/raft"
-	"github.com/mosuka/cete/errors"
-	"github.com/mosuka/cete/marshaler"
-	"github.com/mosuka/cete/metric"
-	"github.com/mosuka/cete/protobuf"
 	"go.uber.org/zap"
 )
 
@@ -643,6 +643,32 @@ func (s *RaftServer) Set(req *protobuf.SetRequest) error {
 	msg, err := proto.Marshal(c)
 	if err != nil {
 		s.logger.Error("failed to marshal the command into the bytes as the message", zap.String("key", req.Key), zap.Error(err))
+		return err
+	}
+
+	if future := s.raft.Apply(msg, 10*time.Second); future.Error() != nil {
+		s.logger.Error("failed to apply the message", zap.Error(future.Error()))
+		return future.Error()
+	}
+
+	return nil
+}
+
+func (s *RaftServer) SetConditional(req *protobuf.SetConditionalRequest) error {
+	kvpAny := &any.Any{}
+	if err := marshaler.UnmarshalAny(req, kvpAny); err != nil {
+		s.logger.Error("failed to unmarshal request to the command data", zap.String("key", req.Object.Key), zap.Error(err))
+		return err
+	}
+
+	c := &protobuf.Event{
+		Type: protobuf.Event_SetConditional,
+		Data: kvpAny,
+	}
+
+	msg, err := proto.Marshal(c)
+	if err != nil {
+		s.logger.Error("failed to marshal the command into the bytes as the message", zap.String("key", req.Object.Key), zap.Error(err))
 		return err
 	}
 

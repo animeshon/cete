@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/mosuka/cete/cmd"
+	"github.com/animeshon/cete/cmd"
 )
 
 func main() {

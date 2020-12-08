@@ -5,11 +5,11 @@ import (
 	"net"
 	"time"
 
+	"github.com/animeshon/cete/metric"
+	"github.com/animeshon/cete/protobuf"
 	grpcmiddleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpczap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
-	"github.com/mosuka/cete/metric"
-	"github.com/mosuka/cete/protobuf"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"

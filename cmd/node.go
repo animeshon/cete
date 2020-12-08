@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/animeshon/cete/client"
 	"github.com/mitchellh/go-homedir"
-	"github.com/mosuka/cete/client"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
