@@ -242,7 +242,7 @@ func (k *KVS) SetObject(item, meta *protobuf.KeyValuePair, ifMatch, ifNoneMatch 
 		}
 		return nil
 	}); err != nil {
-		k.logger.Error("failed to set value", zap.String("key", item.Key), zap.Error(err))
+		k.logger.Debug("failed to set value", zap.String("key", item.Key), zap.Error(err))
 		return err
 	}
 
@@ -286,7 +286,7 @@ func (k *KVS) DeleteObject(itemKey, metaKey string, ifMatch, ifNoneMatch string,
 		}
 		return nil
 	}); err != nil {
-		k.logger.Error("failed to delete value", zap.String("key", itemKey), zap.Error(err))
+		k.logger.Debug("failed to delete value", zap.String("key", itemKey), zap.Error(err))
 		return err
 	}
 

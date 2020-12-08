@@ -390,7 +390,7 @@ func (s *GRPCService) Set(ctx context.Context, req *protobuf.SetRequest) (*empty
 
 	err := s.raftServer.Set(req)
 	if err != nil {
-		s.logger.Error("failed to put data", zap.Any("req", req), zap.Error(err))
+		s.logger.Debug("failed to put data", zap.Any("req", req), zap.Error(err))
 		return resp, status.Error(codes.Internal, err.Error())
 	}
 
@@ -419,7 +419,7 @@ func (s *GRPCService) SetObject(ctx context.Context, req *protobuf.SetObjectRequ
 
 	err := s.raftServer.SetObject(req)
 	if err != nil {
-		s.logger.Error("failed to put data", zap.Any("req", req), zap.Error(err))
+		s.logger.Debug("failed to put data", zap.Any("req", req), zap.Error(err))
 		return resp, status.Error(codes.Internal, err.Error())
 	}
 

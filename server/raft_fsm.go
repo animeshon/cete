@@ -107,7 +107,7 @@ func (f *RaftFSM) applySet(key string, value []byte) interface{} {
 func (f *RaftFSM) applySetObject(item, meta *protobuf.KeyValuePair, ifMatch, ifNoneMatch string, ifModifiedSince, ifUnmodifiedSince int64) interface{} {
 	err := f.kvs.SetObject(item, meta, ifMatch, ifNoneMatch, ifModifiedSince, ifUnmodifiedSince)
 	if err != nil {
-		f.logger.Error("failed to set value", zap.String("object_key", item.Key), zap.String("meta_key", meta.Key), zap.Error(err))
+		f.logger.Error("failed to set value", zap.String("item.key", item.Key), zap.String("meta.key", meta.Key), zap.Error(err))
 		return err
 	}
 
@@ -127,7 +127,7 @@ func (f *RaftFSM) applyDelete(key string) interface{} {
 func (f *RaftFSM) applyDeleteObject(itemKey, metaKey, ifMatch, ifNoneMatch string, ifModifiedSince, ifUnmodifiedSince int64) interface{} {
 	err := f.kvs.DeleteObject(itemKey, metaKey, ifMatch, ifNoneMatch, ifModifiedSince, ifUnmodifiedSince)
 	if err != nil {
-		f.logger.Error("failed to delete value", zap.String("key", itemKey), zap.Error(err))
+		f.logger.Error("failed to delete value", zap.String("item.key", itemKey), zap.String("meta.key", metaKey), zap.Error(err))
 		return err
 	}
 
