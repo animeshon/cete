@@ -107,7 +107,7 @@ func (f *RaftFSM) applySet(key string, value []byte) interface{} {
 func (f *RaftFSM) applySetObject(item, meta *protobuf.KeyValuePair, ifMatch, ifNoneMatch string, ifModifiedSince, ifUnmodifiedSince int64) interface{} {
 	err := f.kvs.SetObject(item, meta, ifMatch, ifNoneMatch, ifModifiedSince, ifUnmodifiedSince)
 	if err != nil {
-		f.logger.Error("failed to set value", zap.String("item.key", item.Key), zap.String("meta.key", meta.Key), zap.Error(err))
+		f.logger.Debug("failed to set value", zap.String("item.key", item.Key), zap.String("meta.key", meta.Key), zap.Error(err))
 		return err
 	}
 
@@ -127,7 +127,7 @@ func (f *RaftFSM) applyDelete(key string) interface{} {
 func (f *RaftFSM) applyDeleteObject(itemKey, metaKey, ifMatch, ifNoneMatch string, ifModifiedSince, ifUnmodifiedSince int64) interface{} {
 	err := f.kvs.DeleteObject(itemKey, metaKey, ifMatch, ifNoneMatch, ifModifiedSince, ifUnmodifiedSince)
 	if err != nil {
-		f.logger.Error("failed to delete value", zap.String("item.key", itemKey), zap.String("meta.key", metaKey), zap.Error(err))
+		f.logger.Debug("failed to delete value", zap.String("item.key", itemKey), zap.String("meta.key", metaKey), zap.Error(err))
 		return err
 	}
 
@@ -375,40 +375,17 @@ func (f *KVSFSMSnapshot) Persist(sink raft.SnapshotSink) error {
 	f.logger.Info("start to persist items")
 
 	defer func() {
-		err := sink.Close()
-		if err != nil {
+		if err := sink.Close(); err != nil {
 			f.logger.Error("failed to close sink", zap.Error(err))
 		}
 	}()
 
-	ch := f.kvs.SnapshotItems()
-
-	kvpCount := uint64(0)
-
-	for {
-		kvp := <-ch
-		if kvp == nil {
-			f.logger.Debug("channel closed")
-			break
-		}
-
-		kvpCount = kvpCount + 1
-
-		buff := proto.NewBuffer([]byte{})
-		err := buff.EncodeMessage(kvp)
-		if err != nil {
-			f.logger.Error("failed to encode key value pair", zap.Error(err))
-			return err
-		}
-
-		_, err = sink.Write(buff.Bytes())
-		if err != nil {
-			f.logger.Error("failed to write key value pair", zap.Error(err))
-			return err
-		}
+	if err := f.kvs.Backup(sink); err != nil {
+		f.logger.Error("failed to persist items", zap.Error(err))
+		return err
 	}
 
-	f.logger.Info("finished to persist items", zap.Uint64("count", kvpCount), zap.Float64("time", float64(time.Since(start))/float64(time.Second)))
+	f.logger.Info("finished to persist items", zap.Float64("time", float64(time.Since(start))/float64(time.Second)))
 
 	return nil
 }

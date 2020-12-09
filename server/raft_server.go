@@ -14,6 +14,7 @@ import (
 	"github.com/animeshon/cete/marshaler"
 	"github.com/animeshon/cete/metric"
 	"github.com/animeshon/cete/protobuf"
+	"github.com/animeshon/cete/storage"
 	raftbadgerdb "github.com/bbva/raft-badger"
 	"github.com/dgraph-io/badger/v2"
 	"github.com/golang/protobuf/proto"
@@ -99,11 +100,12 @@ func (s *RaftServer) Start() error {
 	logStoreBadgerOpts := badger.DefaultOptions(logStorePath)
 	logStoreBadgerOpts.ValueDir = logStorePath
 	logStoreBadgerOpts.SyncWrites = !strings.Contains(os.Getenv("FLAGS"), "--disable-sync-writes")
-	logStoreBadgerOpts.Logger = nil
+	logStoreBadgerOpts.Logger = storage.NewBadgerLogger(s.logger)
 	logStoreBadgerOpts.Truncate = strings.Contains(os.Getenv("FLAGS"), "--truncate")
 	logStoreOpts := raftbadgerdb.Options{
 		Path:          logStorePath,
 		BadgerOptions: &logStoreBadgerOpts,
+		ValueLogGC:    true,
 	}
 	raftLogStore, err := raftbadgerdb.New(logStoreOpts)
 	if err != nil {
@@ -120,11 +122,12 @@ func (s *RaftServer) Start() error {
 	stableStoreBadgerOpts := badger.DefaultOptions(stableStorePath)
 	stableStoreBadgerOpts.ValueDir = stableStorePath
 	stableStoreBadgerOpts.SyncWrites = !strings.Contains(os.Getenv("FLAGS"), "--disable-sync-writes")
-	stableStoreBadgerOpts.Logger = nil
+	stableStoreBadgerOpts.Logger = storage.NewBadgerLogger(s.logger)
 	stableStoreBadgerOpts.Truncate = strings.Contains(os.Getenv("FLAGS"), "--truncate")
 	stableStoreOpts := raftbadgerdb.Options{
 		Path:          stableStorePath,
 		BadgerOptions: &stableStoreBadgerOpts,
+		ValueLogGC:    true,
 	}
 	raftStableStore, err := raftbadgerdb.New(stableStoreOpts)
 	if err != nil {

@@ -14,6 +14,7 @@ import (
 	"github.com/animeshon/cete/errors"
 	"github.com/animeshon/cete/protobuf"
 	"github.com/dgraph-io/badger/v2"
+	"github.com/dgraph-io/badger/v2/options"
 	"github.com/dgraph-io/badger/v2/y"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
@@ -32,6 +33,7 @@ func NewKVS(dir string, valueDir string, logger *zap.Logger) (*KVS, error) {
 	opts.SyncWrites = !strings.Contains(os.Getenv("FLAGS"), "--disable-sync-writes")
 	opts.Logger = NewBadgerLogger(logger)
 	opts.Truncate = strings.Contains(os.Getenv("FLAGS"), "--truncate")
+	opts.Compression = options.Snappy
 
 	db, err := badger.Open(opts)
 	if err != nil {
@@ -355,51 +357,15 @@ func (k *KVS) Stats() map[string]string {
 	return stats
 }
 
-func (k *KVS) SnapshotItems() <-chan *protobuf.KeyValuePair {
-	ch := make(chan *protobuf.KeyValuePair, 1024)
+func (k *KVS) Backup(w io.Writer) error {
+	start := time.Now()
 
-	go func() {
-		start := time.Now()
+	// TODO: Make snapshots incremental using this functionality.
+	ts, err := k.db.Backup(w, 0)
+	if err != nil {
+		return err
+	}
 
-		k.logger.Info("start to snapshot items")
-
-		keyCount := uint64(0)
-
-		if err := k.db.View(func(txn *badger.Txn) error {
-			opts := badger.DefaultIteratorOptions
-			opts.PrefetchSize = 100
-			it := txn.NewIterator(opts)
-			defer it.Close()
-
-			for it.Rewind(); it.Valid(); it.Next() {
-				item := it.Item()
-				key := string(item.Key())
-
-				var value []byte
-				if err := item.Value(func(val []byte) error {
-					value = append([]byte{}, val...)
-					return nil
-				}); err != nil {
-					k.logger.Error("failed to get item value", zap.String("key", key), zap.Error(err))
-					return err
-				}
-
-				ch <- &protobuf.KeyValuePair{
-					Key:   key,
-					Value: append([]byte{}, value...),
-				}
-
-				keyCount = keyCount + 1
-			}
-			ch <- nil
-			return nil
-		}); err != nil {
-			k.logger.Error("failed to snapshot items", zap.Error(err))
-			return
-		}
-
-		k.logger.Info("finished to snapshot items", zap.Uint64("count", keyCount), zap.Float64("time", float64(time.Since(start))/float64(time.Second)))
-	}()
-
-	return ch
+	k.logger.Info("backup succesfully completed", zap.Uint64("ts", ts), zap.Float64("time", float64(time.Since(start))/float64(time.Second)))
+	return nil
 }
