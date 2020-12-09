@@ -1,9 +1,12 @@
 package storage
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	_errors "errors"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -13,6 +16,7 @@ import (
 	"github.com/dgraph-io/badger/v2"
 	"github.com/dgraph-io/badger/v2/y"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 )
 
 type KVS struct {
@@ -176,9 +180,37 @@ func (k *KVS) Set(key string, value []byte) error {
 	return nil
 }
 
-type Pair struct {
-	Key   string
-	Value []byte
+func GetObjectMetaVersion1(value []byte) (string, error) {
+	type T struct {
+		Version string `json:"version"`
+	}
+
+	var _meta *T
+	if err := json.Unmarshal(value, &_meta); err != nil {
+		return "", err
+	}
+
+	return _meta.Version, nil
+}
+
+func GetObjectMetaVersion2(value []byte) (string, error) {
+	r, err := gzip.NewReader(bytes.NewReader(value))
+	if err != nil {
+		return "", err
+	}
+	defer r.Close()
+
+	var b bytes.Buffer
+	if _, err := io.Copy(&b, r); err != nil {
+		return "", err
+	}
+
+	var _meta protobuf.ObjectMeta
+	if err := proto.Unmarshal(b.Bytes(), &_meta); err != nil {
+		return "", err
+	}
+
+	return _meta.Version, nil
 }
 
 func (k *KVS) SetObject(item, meta *protobuf.KeyValuePair, ifMatch, ifNoneMatch string, ifModifiedSince, ifUnmodifiedSince int64) error {
@@ -215,16 +247,24 @@ func (k *KVS) SetObject(item, meta *protobuf.KeyValuePair, ifMatch, ifNoneMatch 
 				return err
 			}
 
-			type T struct {
-				Version string `json:"version"`
+			if len(value) < 2 {
+				return _errors.New("precondition failed [If-Match]: metadata is too short")
 			}
 
-			var _meta *T
-			if err := json.Unmarshal(value, &_meta); err != nil {
-				return err
+			version := ""
+			if value[0] == '{' && value[len(value)-1] == '}' {
+				version, err = GetObjectMetaVersion1(value)
+				if err != nil {
+					return err
+				}
+			} else { // The following is the better disk-efficient implementation.
+				version, err = GetObjectMetaVersion2(value)
+				if err != nil {
+					return err
+				}
 			}
 
-			if _meta.Version != ifMatch {
+			if version != ifMatch {
 				return _errors.New("precondition failed [If-Match]: value mismatch")
 			}
 		}

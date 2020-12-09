@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package main;
+
+option go_package = "github.com/animeshon/cete/protobuf";
+
+message ObjectMeta {
+    // Reference stores the key of the object the metadata instance refers to.
+	string Reference = 1;
+
+	// CreateTimestamp stores the timestamp of the initial creation of the
+	// first generation of this object.
+	int64 CreateTimestamp = 2;
+
+    // UpdateTimestamp stores the timestamp of the creation of this version of the object.
+    int64 UpdateTimestamp = 3;
+
+	// Version is the global version of this object and provides a global chronological
+	// versioning of all key-value pairs.
+	string Version = 4;
+
+	// Generation is the version of this object and is increased by 1 every time it is updated.
+	uint64 Generation = 5;
+
+	// Children stores the direct dependencies of this object which should be deleted
+	// in case of cascade deletion or removal of previously referenced children.
+	repeated string Children = 6;
+
+	// HistoryCursor is set only for objects that are generation 2 or greater and it stores
+	// the value of the previous version of this object.
+	string HistoryCursor = 7;
+
+	// ContentEncoding is equivalent to the header Content-Encoding of the HTTP protocol
+	// and can be omitted (undefined encoding), or set to either "plain" or "gzip".
+	string ContentEncoding= 8;
+
+	// ContentEncoding is equivalent to the header Content-Type of the HTTP protocol
+	// and can be omitted (undefined type) or set to any valid MIME type.
+	string ContentType = 9;
+}
