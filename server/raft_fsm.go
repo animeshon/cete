@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"io"
-	"io/ioutil"
 	"os"
 	"sync"
 	"time"
@@ -46,7 +45,7 @@ func NewRaftFSM(path string, logger *zap.Logger) (*RaftFSM, error) {
 
 	// TODO: Context should be passed down to allow for cascade cancellation.
 	// TODO: GC should have its own flags for both the interval (--gc-interval=5m) and ratio (--gc-discard-ratio=0.5).
-	kvs.ScheduleGC(context.Background(), 5*time.Minute, 0.5)
+	kvs.ScheduleGC(context.Background(), 5*time.Minute, 0.001)
 
 	return &RaftFSM{
 		logger:   logger,
@@ -314,51 +313,6 @@ func (f *RaftFSM) Snapshot() (raft.FSMSnapshot, error) {
 }
 
 func (f *RaftFSM) Restore(rc io.ReadCloser) error {
-	start := time.Now()
-
-	f.logger.Info("start to restore items")
-
-	defer func() {
-		err := rc.Close()
-		if err != nil {
-			f.logger.Error("failed to close reader", zap.Error(err))
-		}
-	}()
-
-	data, err := ioutil.ReadAll(rc)
-	if err != nil {
-		f.logger.Error("failed to open reader", zap.Error(err))
-		return err
-	}
-
-	keyCount := uint64(0)
-
-	buff := proto.NewBuffer(data)
-	for {
-		kvp := &protobuf.KeyValuePair{}
-		err = buff.DecodeMessage(kvp)
-		if err == io.ErrUnexpectedEOF {
-			f.logger.Debug("reached the EOF", zap.Error(err))
-			break
-		}
-		if err != nil {
-			f.logger.Error("failed to read key value pair", zap.Error(err))
-			return err
-		}
-
-		// apply item to store
-		err = f.kvs.Set(kvp.Key, kvp.Value)
-		if err != nil {
-			f.logger.Error("failed to set key value pair to key value store", zap.Error(err))
-			return err
-		}
-
-		f.logger.Debug("restore", zap.String("key", kvp.Key))
-		keyCount = keyCount + 1
-	}
-
-	f.logger.Info("finished to restore items", zap.Uint64("count", keyCount), zap.Float64("time", float64(time.Since(start))/float64(time.Second)))
-
 	return nil
 }
 

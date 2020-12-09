@@ -32,8 +32,9 @@ func NewKVS(dir string, valueDir string, logger *zap.Logger) (*KVS, error) {
 	opts.ValueDir = valueDir
 	opts.SyncWrites = !strings.Contains(os.Getenv("FLAGS"), "--disable-sync-writes")
 	opts.Logger = NewBadgerLogger(logger)
-	opts.Truncate = strings.Contains(os.Getenv("FLAGS"), "--truncate")
+	// opts.Truncate = strings.Contains(os.Getenv("FLAGS"), "--truncate")
 	opts.Compression = options.Snappy
+	opts.ValueLogFileSize = 1<<29 - 1
 
 	db, err := badger.Open(opts)
 	if err != nil {

@@ -4,7 +4,7 @@ go 1.14
 
 require (
 	github.com/bbva/raft-badger v1.0.0
-	github.com/dgraph-io/badger/v2 v2.2007.3-0.20200927102853-5e3d4b9926a7
+	github.com/dgraph-io/badger/v2 v2.0.1-rc1.0.20201207080914-f492aa38111d
 	github.com/golang/protobuf v1.4.3
 	github.com/grpc-ecosystem/go-grpc-middleware v1.2.0
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0

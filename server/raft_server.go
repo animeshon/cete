@@ -101,7 +101,7 @@ func (s *RaftServer) Start() error {
 	logStoreBadgerOpts.ValueDir = logStorePath
 	logStoreBadgerOpts.SyncWrites = !strings.Contains(os.Getenv("FLAGS"), "--disable-sync-writes")
 	logStoreBadgerOpts.Logger = storage.NewBadgerLogger(s.logger)
-	logStoreBadgerOpts.Truncate = strings.Contains(os.Getenv("FLAGS"), "--truncate")
+	// logStoreBadgerOpts.Truncate = strings.Contains(os.Getenv("FLAGS"), "--truncate")
 	logStoreOpts := raftbadgerdb.Options{
 		Path:          logStorePath,
 		BadgerOptions: &logStoreBadgerOpts,
@@ -123,7 +123,7 @@ func (s *RaftServer) Start() error {
 	stableStoreBadgerOpts.ValueDir = stableStorePath
 	stableStoreBadgerOpts.SyncWrites = !strings.Contains(os.Getenv("FLAGS"), "--disable-sync-writes")
 	stableStoreBadgerOpts.Logger = storage.NewBadgerLogger(s.logger)
-	stableStoreBadgerOpts.Truncate = strings.Contains(os.Getenv("FLAGS"), "--truncate")
+	// stableStoreBadgerOpts.Truncate = strings.Contains(os.Getenv("FLAGS"), "--truncate")
 	stableStoreOpts := raftbadgerdb.Options{
 		Path:          stableStorePath,
 		BadgerOptions: &stableStoreBadgerOpts,
