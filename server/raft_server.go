@@ -66,7 +66,7 @@ func NewRaftServer(id string, raftAddress string, dataDirectory string, bootstra
 func (s *RaftServer) Start() error {
 	config := raft.DefaultConfig()
 	config.LocalID = raft.ServerID(s.id)
-	config.SnapshotThreshold = 1024
+	config.SnapshotThreshold = 8192
 	config.LogOutput = ioutil.Discard
 	config.NoSnapshotRestoreOnStart = true
 
@@ -83,7 +83,7 @@ func (s *RaftServer) Start() error {
 	}
 
 	// create snapshot store
-	snapshotStore, err := raft.NewFileSnapshotStore(s.dataDirectory, 2, ioutil.Discard)
+	snapshotStore, err := raft.NewFileSnapshotStore(s.dataDirectory, 1, ioutil.Discard)
 	if err != nil {
 		s.logger.Error("failed to create file snapshot store", zap.String("path", s.dataDirectory), zap.Error(err))
 		return err
