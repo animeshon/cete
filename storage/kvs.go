@@ -315,7 +315,7 @@ func (k *KVS) Stats() map[string]string {
 }
 
 func (k *KVS) SnapshotItems() <-chan *protobuf.KeyValuePair {
-	ch := make(chan *protobuf.KeyValuePair, 2048)
+	ch := make(chan *protobuf.KeyValuePair, 1024)
 
 	go func() {
 		start := time.Now()
@@ -326,7 +326,7 @@ func (k *KVS) SnapshotItems() <-chan *protobuf.KeyValuePair {
 
 		if err := k.db.View(func(txn *badger.Txn) error {
 			opts := badger.DefaultIteratorOptions
-			opts.PrefetchSize = 4096
+			opts.PrefetchSize = 100
 			it := txn.NewIterator(opts)
 			defer it.Close()
 
