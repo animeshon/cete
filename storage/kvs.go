@@ -213,6 +213,15 @@ func GetObjectMetaVersion2(value []byte) (string, error) {
 	return _meta.Version, nil
 }
 
+func GetObjectMetaVersion(value []byte) (string, error) {
+	if value[0] == '{' && value[len(value)-1] == '}' {
+		return GetObjectMetaVersion1(value)
+	}
+
+	// The following is the better disk-efficient implementation.
+	return GetObjectMetaVersion2(value)
+}
+
 func (k *KVS) SetObject(item, meta *protobuf.KeyValuePair, ifMatch, ifNoneMatch string, ifModifiedSince, ifUnmodifiedSince int64) error {
 	start := time.Now()
 
@@ -251,17 +260,9 @@ func (k *KVS) SetObject(item, meta *protobuf.KeyValuePair, ifMatch, ifNoneMatch 
 				return _errors.New("precondition failed [If-Match]: metadata is too short")
 			}
 
-			version := ""
-			if value[0] == '{' && value[len(value)-1] == '}' {
-				version, err = GetObjectMetaVersion1(value)
-				if err != nil {
-					return err
-				}
-			} else { // The following is the better disk-efficient implementation.
-				version, err = GetObjectMetaVersion2(value)
-				if err != nil {
-					return err
-				}
+			version, err := GetObjectMetaVersion(value)
+			if err != nil {
+				return err
 			}
 
 			if version != ifMatch {
