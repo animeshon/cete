@@ -66,7 +66,8 @@ func NewRaftServer(id string, raftAddress string, dataDirectory string, bootstra
 func (s *RaftServer) Start() error {
 	config := raft.DefaultConfig()
 	config.LocalID = raft.ServerID(s.id)
-	config.SnapshotThreshold = 8192
+	config.SnapshotThreshold = 10000
+	config.SnapshotInterval = 5 * time.Minute
 	config.LogOutput = ioutil.Discard
 	config.NoSnapshotRestoreOnStart = true
 
