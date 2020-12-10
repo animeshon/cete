@@ -36,8 +36,8 @@ func CustomCodeToLevel(code codes.Code) zapcore.Level {
 		return zap.WarnLevel
 	case codes.Unimplemented:
 		return zap.ErrorLevel
-	case codes.Internal:
-		return zap.ErrorLevel
+	case codes.Internal: // TODO: This was set to debug to mute precondition errors. A better solution should be implemented.
+		return zap.DebugLevel
 	case codes.Unavailable:
 		return zap.WarnLevel
 	case codes.DataLoss:

@@ -29,12 +29,12 @@ type KVS struct {
 
 func NewKVS(dir string, valueDir string, logger *zap.Logger) (*KVS, error) {
 	opts := badger.DefaultOptions(dir)
-	opts.ValueDir = valueDir
-	opts.SyncWrites = !strings.Contains(os.Getenv("FLAGS"), "--disable-sync-writes")
-	opts.Logger = NewBadgerLogger(logger)
+	opts.WithValueDir(valueDir)
+	opts.WithSyncWrites(!strings.Contains(os.Getenv("FLAGS"), "--disable-sync-writes"))
+	opts.WithLogger(NewBadgerLogger(logger))
+	opts.WithCompression(options.Snappy)
+	opts.WithValueLogFileSize(1<<29 - 1)
 	// opts.Truncate = strings.Contains(os.Getenv("FLAGS"), "--truncate")
-	opts.Compression = options.Snappy
-	opts.ValueLogFileSize = 1<<29 - 1
 
 	db, err := badger.Open(opts)
 	if err != nil {
