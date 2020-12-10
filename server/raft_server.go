@@ -733,7 +733,7 @@ func (s *RaftServer) DeleteObject(req *protobuf.DeleteObjectRequest) error {
 	}
 
 	c := &protobuf.Event{
-		Type: protobuf.Event_Delete,
+		Type: protobuf.Event_DeleteObject,
 		Data: kvpAny,
 	}
 
