@@ -1,8 +1,6 @@
 package storage
 
 import (
-	"bytes"
-	"compress/gzip"
 	"context"
 	"encoding/json"
 	_errors "errors"
@@ -188,32 +186,21 @@ func GetObjectMetaVersion1(value []byte) (string, error) {
 		Version string `json:"version"`
 	}
 
-	var _meta *T
-	if err := json.Unmarshal(value, &_meta); err != nil {
+	var meta *T
+	if err := json.Unmarshal(value, &meta); err != nil {
 		return "", err
 	}
 
-	return _meta.Version, nil
+	return meta.Version, nil
 }
 
 func GetObjectMetaVersion2(value []byte) (string, error) {
-	r, err := gzip.NewReader(bytes.NewReader(value))
-	if err != nil {
-		return "", err
-	}
-	defer r.Close()
-
-	var b bytes.Buffer
-	if _, err := io.Copy(&b, r); err != nil {
+	var meta protobuf.ObjectMeta
+	if err := proto.Unmarshal(value, &meta); err != nil {
 		return "", err
 	}
 
-	var _meta protobuf.ObjectMeta
-	if err := proto.Unmarshal(b.Bytes(), &_meta); err != nil {
-		return "", err
-	}
-
-	return _meta.Version, nil
+	return meta.Version, nil
 }
 
 func GetObjectMetaVersion(value []byte) (string, error) {
