@@ -346,14 +346,14 @@ func (k *KVS) Stats() map[string]string {
 }
 
 func (k *KVS) Backup(w io.Writer) error {
-	start := time.Now()
+	// start := time.Now()
 
-	// TODO: Make snapshots incremental using this functionality.
-	ts, err := k.db.Backup(w, 0)
-	if err != nil {
-		return err
-	}
+	// // TODO: Make snapshots incremental using this functionality.
+	// ts, err := k.db.Backup(w, 0)
+	// if err != nil {
+	// 	return err
+	// }
 
-	k.logger.Info("backup succesfully completed", zap.Uint64("ts", ts), zap.Float64("time", float64(time.Since(start))/float64(time.Second)))
+	// k.logger.Info("backup succesfully completed", zap.Uint64("ts", ts), zap.Float64("time", float64(time.Since(start))/float64(time.Second)))
 	return nil
 }
