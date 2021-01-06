@@ -158,17 +158,7 @@ func (c *GRPCClient) Get(req *protobuf.GetRequest, opts ...grpc.CallOption) (*pr
 }
 
 func (c *GRPCClient) List(req *protobuf.ListRequest, opts ...grpc.CallOption) (protobuf.KVS_ListClient, error) {
-	if stream, err := c.client.List(c.ctx, req, opts...); err != nil {
-		st, _ := status.FromError(err)
-		switch st.Code() {
-		case codes.NotFound:
-			return nil, errors.ErrNotFound
-		default:
-			return nil, err
-		}
-	} else {
-		return stream, nil
-	}
+	return c.client.List(c.ctx, req, opts...)
 }
 
 func (c *GRPCClient) Set(req *protobuf.SetRequest, opts ...grpc.CallOption) error {
