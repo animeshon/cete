@@ -134,32 +134,42 @@ func (k *KVS) Get(key string) ([]byte, error) {
 	return value, nil
 }
 
-func (k *KVS) Scan(prefix string) ([][]byte, error) {
+func (k *KVS) List(request *protobuf.ListRequest, stream protobuf.KVS_ListServer) error {
 	start := time.Now()
 
-	var value [][]byte
+	options := badger.DefaultIteratorOptions
+	options.PrefetchValues = request.ReturnValues
+
 	if err := k.db.View(func(txn *badger.Txn) error {
-		it := txn.NewIterator(badger.DefaultIteratorOptions)
+		it := txn.NewIterator(options)
 		defer it.Close()
-		prefixBytes := []byte(prefix)
+
+		prefixBytes := []byte(request.Prefix)
 		for it.Seek(prefixBytes); it.ValidForPrefix(prefixBytes); it.Next() {
 			item := it.Item()
-			err := item.Value(func(val []byte) error {
-				value = append(value, append([]byte{}, val...))
-				return nil
-			})
-			if err != nil {
+
+			var value []byte
+			if request.ReturnValues {
+				var err error
+				if value, err = item.ValueCopy(nil); err != nil {
+					return err
+				}
+			}
+
+			resp := &protobuf.ListResponse{Key: item.KeyCopy(nil), Value: value}
+			if err := stream.Send(resp); err != nil {
 				return err
 			}
 		}
+
 		return nil
 	}); err != nil {
-		k.logger.Error("failed to scan value", zap.String("prefix", prefix), zap.Error(err))
-		return nil, err
+		k.logger.Error("failed to scan value", zap.String("prefix", request.Prefix), zap.Error(err))
+		return err
 	}
 
-	k.logger.Debug("scan", zap.String("prefix", prefix), zap.Float64("time", float64(time.Since(start))/float64(time.Second)))
-	return value, nil
+	k.logger.Debug("scan", zap.String("prefix", request.Prefix), zap.Float64("time", float64(time.Since(start))/float64(time.Second)))
+	return nil
 }
 
 func (k *KVS) Set(key string, value []byte) error {

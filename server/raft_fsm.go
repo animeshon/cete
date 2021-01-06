@@ -83,14 +83,13 @@ func (f *RaftFSM) Get(key string) ([]byte, error) {
 	return value, nil
 }
 
-func (f *RaftFSM) Scan(prefix string) ([][]byte, error) {
-	values, err := f.kvs.Scan(prefix)
-	if err != nil {
-		f.logger.Error("failed to scan values", zap.String("prefix", prefix), zap.Error(err))
-		return nil, err
+func (f *RaftFSM) List(request *protobuf.ListRequest, stream protobuf.KVS_ListServer) error {
+	if err := f.kvs.List(request, stream); err != nil {
+		f.logger.Error("failed to scan values", zap.String("prefix", request.Prefix), zap.Error(err))
+		return err
 	}
 
-	return values, nil
+	return nil
 }
 
 func (f *RaftFSM) applySet(key string, value []byte) interface{} {

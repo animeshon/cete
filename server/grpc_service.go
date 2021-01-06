@@ -351,21 +351,16 @@ func (s *GRPCService) Get(ctx context.Context, req *protobuf.GetRequest) (*proto
 	return resp, nil
 }
 
-func (s *GRPCService) Scan(ctx context.Context, req *protobuf.ScanRequest) (*protobuf.ScanResponse, error) {
-	resp := &protobuf.ScanResponse{}
-
-	var err error
-
-	resp, err = s.raftServer.Scan(req)
-	if err != nil {
+func (s *GRPCService) List(request *protobuf.ListRequest, stream protobuf.KVS_ListServer) error {
+	if err := s.raftServer.List(request, stream); err != nil {
 		switch err {
 		default:
-			s.logger.Debug("failed to scan data", zap.String("prefix", req.Prefix), zap.String("err", err.Error()))
-			return resp, status.Error(codes.Internal, err.Error())
+			s.logger.Debug("failed to scan data", zap.String("prefix", request.Prefix), zap.String("err", err.Error()))
+			return status.Error(codes.Internal, err.Error())
 		}
 	}
 
-	return resp, nil
+	return nil
 }
 
 func (s *GRPCService) Set(ctx context.Context, req *protobuf.SetRequest) (*empty.Empty, error) {

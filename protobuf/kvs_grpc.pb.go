@@ -26,7 +26,7 @@ type KVSClient interface {
 	Leave(ctx context.Context, in *LeaveRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	Snapshot(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error)
 	Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetResponse, error)
-	Scan(ctx context.Context, in *ScanRequest, opts ...grpc.CallOption) (*ScanResponse, error)
+	List(ctx context.Context, in *ListRequest, opts ...grpc.CallOption) (KVS_ListClient, error)
 	Set(ctx context.Context, in *SetRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	SetObject(ctx context.Context, in *SetObjectRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	Delete(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*empty.Empty, error)
@@ -115,13 +115,36 @@ func (c *kVSClient) Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOp
 	return out, nil
 }
 
-func (c *kVSClient) Scan(ctx context.Context, in *ScanRequest, opts ...grpc.CallOption) (*ScanResponse, error) {
-	out := new(ScanResponse)
-	err := c.cc.Invoke(ctx, "/kvs.KVS/Scan", in, out, opts...)
+func (c *kVSClient) List(ctx context.Context, in *ListRequest, opts ...grpc.CallOption) (KVS_ListClient, error) {
+	stream, err := c.cc.NewStream(ctx, &KVS_ServiceDesc.Streams[0], "/kvs.KVS/List", opts...)
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
+	x := &kVSListClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type KVS_ListClient interface {
+	Recv() (*ListResponse, error)
+	grpc.ClientStream
+}
+
+type kVSListClient struct {
+	grpc.ClientStream
+}
+
+func (x *kVSListClient) Recv() (*ListResponse, error) {
+	m := new(ListResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 func (c *kVSClient) Set(ctx context.Context, in *SetRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
@@ -161,7 +184,7 @@ func (c *kVSClient) DeleteObject(ctx context.Context, in *DeleteObjectRequest, o
 }
 
 func (c *kVSClient) Watch(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (KVS_WatchClient, error) {
-	stream, err := c.cc.NewStream(ctx, &KVS_ServiceDesc.Streams[0], "/kvs.KVS/Watch", opts...)
+	stream, err := c.cc.NewStream(ctx, &KVS_ServiceDesc.Streams[1], "/kvs.KVS/Watch", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -213,7 +236,7 @@ type KVSServer interface {
 	Leave(context.Context, *LeaveRequest) (*empty.Empty, error)
 	Snapshot(context.Context, *empty.Empty) (*empty.Empty, error)
 	Get(context.Context, *GetRequest) (*GetResponse, error)
-	Scan(context.Context, *ScanRequest) (*ScanResponse, error)
+	List(*ListRequest, KVS_ListServer) error
 	Set(context.Context, *SetRequest) (*empty.Empty, error)
 	SetObject(context.Context, *SetObjectRequest) (*empty.Empty, error)
 	Delete(context.Context, *DeleteRequest) (*empty.Empty, error)
@@ -251,8 +274,8 @@ func (UnimplementedKVSServer) Snapshot(context.Context, *empty.Empty) (*empty.Em
 func (UnimplementedKVSServer) Get(context.Context, *GetRequest) (*GetResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Get not implemented")
 }
-func (UnimplementedKVSServer) Scan(context.Context, *ScanRequest) (*ScanResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Scan not implemented")
+func (UnimplementedKVSServer) List(*ListRequest, KVS_ListServer) error {
+	return status.Errorf(codes.Unimplemented, "method List not implemented")
 }
 func (UnimplementedKVSServer) Set(context.Context, *SetRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Set not implemented")
@@ -429,22 +452,25 @@ func _KVS_Get_Handler(srv interface{}, ctx context.Context, dec func(interface{}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _KVS_Scan_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ScanRequest)
-	if err := dec(in); err != nil {
-		return nil, err
+func _KVS_List_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ListRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
 	}
-	if interceptor == nil {
-		return srv.(KVSServer).Scan(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/kvs.KVS/Scan",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(KVSServer).Scan(ctx, req.(*ScanRequest))
-	}
-	return interceptor(ctx, in, info, handler)
+	return srv.(KVSServer).List(m, &kVSListServer{stream})
+}
+
+type KVS_ListServer interface {
+	Send(*ListResponse) error
+	grpc.ServerStream
+}
+
+type kVSListServer struct {
+	grpc.ServerStream
+}
+
+func (x *kVSListServer) Send(m *ListResponse) error {
+	return x.ServerStream.SendMsg(m)
 }
 
 func _KVS_Set_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -598,10 +624,6 @@ var KVS_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _KVS_Get_Handler,
 		},
 		{
-			MethodName: "Scan",
-			Handler:    _KVS_Scan_Handler,
-		},
-		{
 			MethodName: "Set",
 			Handler:    _KVS_Set_Handler,
 		},
@@ -623,6 +645,11 @@ var KVS_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "List",
+			Handler:       _KVS_List_Handler,
+			ServerStreams: true,
+		},
 		{
 			StreamName:    "Watch",
 			Handler:       _KVS_Watch_Handler,

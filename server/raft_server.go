@@ -618,18 +618,13 @@ func (s *RaftServer) Get(req *protobuf.GetRequest) (*protobuf.GetResponse, error
 	return resp, nil
 }
 
-func (s *RaftServer) Scan(req *protobuf.ScanRequest) (*protobuf.ScanResponse, error) {
-	values, err := s.fsm.Scan(req.Prefix)
-	if err != nil {
-		s.logger.Error("failed to scan", zap.Any("prefix", req.Prefix), zap.Error(err))
-		return nil, err
+func (s *RaftServer) List(request *protobuf.ListRequest, stream protobuf.KVS_ListServer) error {
+	if err := s.fsm.List(request, stream); err != nil {
+		s.logger.Error("failed to scan", zap.Any("prefix", request.Prefix), zap.Error(err))
+		return err
 	}
 
-	resp := &protobuf.ScanResponse{
-		Values: values,
-	}
-
-	return resp, nil
+	return nil
 }
 
 func (s *RaftServer) Set(req *protobuf.SetRequest) error {
