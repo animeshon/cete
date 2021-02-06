@@ -57,9 +57,9 @@ service KVS {
     }
 
     rpc List (ListRequest) returns (stream ListResponse) {
-        option (google.api.http) = {
-            get: "/v1/data/{prefix=**}"
-        };
+        // option (google.api.http) = {
+        //     get: "/v1/data/{prefix=**}"
+        // };
     }
 
     rpc Set (SetRequest) returns (google.protobuf.Empty) {

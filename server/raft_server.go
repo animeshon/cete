@@ -128,6 +128,7 @@ func (s *RaftServer) Start() error {
 		Path:          stableStorePath,
 		BadgerOptions: &stableStoreBadgerOpts,
 		ValueLogGC:    true,
+		NoSync:        strings.Contains(os.Getenv("FLAGS"), "--disable-sync-writes"),
 	}
 	raftStableStore, err := raftbadgerdb.New(stableStoreOpts)
 	if err != nil {
